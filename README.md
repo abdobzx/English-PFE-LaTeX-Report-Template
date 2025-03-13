@@ -29,7 +29,7 @@ This document contains the Latex template of my end-of-study internship report. 
 
 - You can modify FrontPage.docx and AbstractPage.docx then save them as .pdf files and include them in the overleaf project.
 
-- You can easily swap between my template pages abd the ones provided by your university
+- You can easily swap between my template pages and the ones provided by your university
 
 - In Report.tex, line 114 (\includepdf[pages=-]{FrontPage.pdf}) includes the front page pdf at the start of the report
 and line 167 for the abstract page at the end.
@@ -41,10 +41,10 @@ what they produce helped me grasp it little by little and I used google to help 
 
 I organized the report into chapter files instead of having them all in one main .tex file.
 
-When I wrote my report, I needed some additional features like colouring the table and mofidying the spacing some parts...
+When I wrote my report, I needed some additional features like colouring the table and modifying the spacing of some parts...
 With ChatGPT and google, I added the necessary packages to be able to use new commands.
 
-Noramlly when you upload this report you will find only one warning that I couldn't remove but yeah we can't attain perfection.
+Normally when you upload this report you will find only one warning that I couldn't remove but yeah we can't attain perfection.
 This is clean and functional and I hope it can help others.
 
 If your report must be in french, I challenge you to modify the necessary scripts (Hint: google "how to change the language of latex document")
