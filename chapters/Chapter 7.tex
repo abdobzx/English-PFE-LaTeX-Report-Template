@@ -5,7 +5,6 @@ Once the CI pipeline successfully builds, tests, scans, and publishes the artifa
 
 \begin{figure}[htbp]
     \centering
-    \resizebox{\textwidth}{!}{%
     \begin{verbatim}
 [CI Build Artifact 'drop']
         |
@@ -21,8 +20,7 @@ Once the CI pipeline successfully builds, tests, scans, and publishes the artifa
 |   Deploy-to-Dev   |      |   Deploy-to-QA        |      |   Deploy-to-PreProd     |      |   Deploy-to-Prod      |
 +-------------------+      +-----------------------+      +-------------------------+      +-----------------------+
         | (Artifact Filter: Dev Branch Build)                  (Artifact Filter: QA Branch Build)                  (Artifact Filter: PreProd Branch Build)                 (Artifact Filter: Prod Branch Build)
-    \end{verbatim}%
-    }
+    \end{verbatim}
     \caption{Conceptual Overview of Release Stages and Approvals}
     \label{fig:ReleaseStagesApprovals}
 \end{figure}
@@ -157,7 +155,6 @@ try {
     \centering
     \caption{Deployment Stage Configuration Summary}
     \label{tab:DeploymentStageConfigSummary}
-    \resizebox{\textwidth}{!}{%
     \begin{tabular}{|l|p{3.5cm}|p{3.5cm}|p{3.5cm}|p{3.5cm}|}
         \hline
         \textbf{Feature} & \textbf{Development (Dev)} & \textbf{Quality Assurance (QA)} & \textbf{Pre-Production (PreProd)} & \textbf{Production (Prod)} \\
@@ -174,8 +171,7 @@ try {
         \hline
         Primary Purpose & Developer testing, initial integration & Formal testing, bug fixing verification & UAT, staging, soak testing & Live operational use \\
         \hline
-    \end{tabular}%
-    }
+    \end{tabular}
 \end{table}
 
 \section{Rollback and Error-Handling Strategies}
