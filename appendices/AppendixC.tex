@@ -9,6 +9,7 @@
     \centering
     \caption{Service Principal API Permissions (Example Minimal Set)}
     \label{tab:ServicePrincipalPermissions}
+    \resizebox{\textwidth}{!}{%
     \begin{tabular}{|l|l|l|p{6cm}|}
         \hline
         \textbf{API / Permission Name} & \textbf{Type} & \textbf{Admin Consent Required} & \textbf{Description} \\
@@ -22,7 +23,8 @@
         \texttt{AppCatalog.ReadWrite.All} & Application & Yes & Manage submissions to the SharePoint App Catalog. \\
         \texttt{User.Read} (Graph or SP) & Application & Yes & Required by some PnP cmdlets to resolve user context. \\
         \hline
-    \end{tabular}
+    \end{tabular}%
+    }
 \end{table}
 
 \textit{Note: Always strive for the principle of least privilege. \texttt{Sites.Selected} with specific site permissions granted via Graph or PowerShell is preferred over \texttt{Sites.FullControl.All} or \texttt{Sites.ReadWrite.All} if the scope of operation can be limited.}

@@ -116,6 +116,7 @@ This structured approach to managing build artifacts ensures that all necessary 
     \centering
     \caption{Key Build Artifacts}
     \label{tab:KeyBuildArtifacts}
+    \resizebox{\textwidth}{!}{%
     \begin{tabular}{|l|l|p{7cm}|}
         \hline
         \textbf{Artifact} & \textbf{Format/Type} & \textbf{Description} \\
@@ -130,5 +131,6 @@ This structured approach to managing build artifacts ensures that all necessary 
         \hline
         Vulnerability Scan Report & Text (Trivy output) & List of identified security vulnerabilities in dependencies. \\
         \hline
-    \end{tabular}
+    \end{tabular}%
+    }
 \end{table}

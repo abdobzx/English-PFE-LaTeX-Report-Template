@@ -58,6 +58,7 @@ The CI/CD pipeline was designed using Azure DevOps as the central orchestration 
 
 \begin{figure}[htbp]
     \centering
+    \resizebox{\textwidth}{!}{%
     \begin{verbatim}
 +---------------------+     +---------------------+     +-----------------------+
 |   Azure Repos       |<--->| Azure Pipelines (CI)|<--->|   Build Agent (Host)  |
@@ -105,7 +106,8 @@ The CI/CD pipeline was designed using Azure DevOps as the central orchestration 
         | - App Catalog           |      | - App Catalog           |
         | - Target Site(s)        |      | - Target Site(s)        |
         +-------------------------+      +-------------------------+
-    \end{verbatim}
+    \end{verbatim}%
+    }
     \caption{High-Level CI/CD Pipeline Architecture}
     \label{fig:HighLevelArchitecture}
 \end{figure}

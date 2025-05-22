@@ -43,6 +43,7 @@ We established five main types of branches, each serving a distinct purpose in t
 
 \begin{figure}[htbp]
     \centering
+    \resizebox{\textwidth}{!}{%
     \begin{verbatim}
 future/feature-A --+
                    | PR (2 Rev)
@@ -54,7 +55,8 @@ future/feature-B --+         |                      |                        |
                    | PR (2 Rev)                     |                        |
                    v                                v                        v
                  (Deploy to Dev Env)    (Deploy to QA Env)   (Deploy to PreProd Env) (Deploy to Prod Env)
-    \end{verbatim}
+    \end{verbatim}%
+    }
     \caption{Git Branching Strategy (Conceptual)}
     \label{fig:GitBranchingStrategy}
 \end{figure}
@@ -101,6 +103,7 @@ To enforce the workflow and maintain code quality, specific permissions and bran
     \centering
     \caption{Branch Purposes and Policies Summary}
     \label{tab:BranchPoliciesSummary}
+    \resizebox{\textwidth}{!}{%
     \begin{tabular}{|l|p{3.5cm}|l|l|l|l|}
         \hline
         \textbf{Branch} & \textbf{Purpose} & \textbf{Source Branch For PR} & \textbf{Target For PR From} & \textbf{Reviewers (PR)} & \textbf{Direct Push Allowed} \\
@@ -115,7 +118,8 @@ To enforce the workflow and maintain code quality, specific permissions and bran
         \hline
         \texttt{Prod} & Production releases, deployment to Prod Env & \texttt{PreProd} & - & N/A & No \\
         \hline
-    \end{tabular}
+    \end{tabular}%
+    }
 \end{table}
 
 \section{Pre-Deployment Approvals}

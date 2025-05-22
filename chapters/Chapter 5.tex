@@ -18,7 +18,10 @@ The YAML file typically includes the following main sections:
 
 Below is a conceptual structure of the YAML. The full YAML is provided in Appendix A.
 
-\begin{verbatim}
+\begin{figure}[htbp]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{verbatim}
 # azure-pipelines.yml (Conceptual Structure)
 trigger:
   branches:
@@ -168,7 +171,11 @@ stages:
         Contents: '**'
         TargetFolder: '$(Build.ArtifactStagingDirectory)/playwright-html-report'
       displayName: 'Copy Playwright HTML Report to Staging'
-\end{verbatim}
+\end{verbatim}%
+    }
+    \caption{Conceptual Structure of azure-pipelines.yml}
+    \label{fig:ConceptualYAML}
+\end{figure}
 
 \section{Detailed Description of CI Steps}
 \label{sec:CIDetailedSteps}
@@ -249,6 +256,7 @@ Secure and flexible management of configuration data, especially secrets, is cru
     \centering
     \caption{Environment Variables for CI/CD Pipeline}
     \label{tab:EnvVariablesCICD}
+    \resizebox{\textwidth}{!}{%
     \begin{tabular}{|l|p{5cm}|l|l|p{4cm}|}
         \hline
         \textbf{Variable Name} & \textbf{Description} & \textbf{Scope} & \textbf{Secret} & \textbf{Source} \\
@@ -277,7 +285,8 @@ Secure and flexible management of configuration data, especially secrets, is cru
         \hline
         \texttt{CERTIFICATE\_PASSWORD\_SECRET} & Password for the .p12/.pfx certificate file. & CI/CD & Yes & Azure Key Vault via Variable Group \\
         \hline
-    \end{tabular}
+    \end{tabular}%
+    }
 \end{table}
 
 \textbf{Secrets Management:}
