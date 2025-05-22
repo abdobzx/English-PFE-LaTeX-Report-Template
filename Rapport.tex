@@ -101,8 +101,8 @@
 
 \sloppy
 
-\author{You}
-\title{PFE Report}
+\author{[Your Name/Internship Group Name]}
+\title{Design and Implementation of a Secure CI/CD Pipeline for SharePoint Framework Solutions at Sothema}
 
 %--------------------------------------------------------------------------
 %--------------------------------------------------------------------------
@@ -126,10 +126,17 @@
 % Don't forget to comment it in the end
 
 \noindent
-Chapter 1 has \the\numexpr\getpagerefnumber{chap:2nd}-\getpagerefnumber{chap:1st}\relax\space pages \newline
-Chapter 2 has \the\numexpr\getpagerefnumber{chap:3rd}-\getpagerefnumber{chap:2nd}\relax\space pages \newline
-Chapter 3 has \the\numexpr\getpagerefnumber{chap:4th}-\getpagerefnumber{chap:3rd}\relax\space pages \newline
-Chapter 4 has \the\numexpr\getpagerefnumber{conclusion}-\getpagerefnumber{chap:4th}\relax\space pages \newline
+Chapter 1 (Executive Summary) has \the\numexpr\getpagerefnumber{chap:companypres}-\getpagerefnumber{chap:execsummary}\relax\space pages \newline
+Chapter 2 (Company Presentation) has \the\numexpr\getpagerefnumber{chap:projectoverview}-\getpagerefnumber{chap:companypres}\relax\space pages \newline
+Chapter 3 (Project Overview) has \the\numexpr\getpagerefnumber{chap:gitworkflow}-\getpagerefnumber{chap:projectoverview}\relax\space pages \newline
+Chapter 4 (Git Workflow) has \the\numexpr\getpagerefnumber{chap:cipipeline}-\getpagerefnumber{chap:gitworkflow}\relax\space pages \newline
+Chapter 5 (CI Pipeline Design) has \the\numexpr\getpagerefnumber{chap:buildartifacts}-\getpagerefnumber{chap:cipipeline}\relax\space pages \newline
+Chapter 6 (Build Artifacts) has \the\numexpr\getpagerefnumber{chap:releasepipeline}-\getpagerefnumber{chap:buildartifacts}\relax\space pages \newline
+Chapter 7 (Release Pipeline) has \the\numexpr\getpagerefnumber{chap:testingqa}-\getpagerefnumber{chap:releasepipeline}\relax\space pages \newline
+Chapter 8 (Testing and QA) has \the\numexpr\getpagerefnumber{chap:security}-\getpagerefnumber{chap:testingqa}\relax\space pages \newline
+Chapter 9 (Security and Compliance) has \the\numexpr\getpagerefnumber{chap:results}-\getpagerefnumber{chap:security}\relax\space pages \newline
+Chapter 10 (Results and Metrics) has \the\numexpr\getpagerefnumber{chap:challenges}-\getpagerefnumber{chap:results}\relax\space pages \newline
+Chapter 11 (Challenges and Lessons Learned) has \the\numexpr\getpagerefnumber{conclusion}-\getpagerefnumber{chap:challenges}\relax\space pages \newline
 
 
 \frontmatter
@@ -137,8 +144,8 @@ Chapter 4 has \the\numexpr\getpagerefnumber{conclusion}-\getpagerefnumber{chap:4
 \tableofcontents
 \newpage
 
-\listoffigures \mtcaddchapter 
-\newpage 
+\listoffigures \mtcaddchapter
+\newpage
 
 \listoftables
 \newpage
@@ -149,17 +156,26 @@ Chapter 4 has \the\numexpr\getpagerefnumber{conclusion}-\getpagerefnumber{chap:4
 
 \mainmatter
 
-\input{pages/Introduction.tex}
+\input{pages/Introduction.tex} \label{introduction}
 
-\input{chapters/Chapter 1.tex}
+\input{chapters/Chapter 1.tex} \label{chap:execsummary}
+\input{chapters/Chapter 2.tex} \label{chap:companypres}
+\input{chapters/Chapter 3.tex} \label{chap:projectoverview}
+\input{chapters/Chapter 4.tex} \label{chap:gitworkflow}
+\input{chapters/Chapter 5.tex} \label{chap:cipipeline}
+\input{chapters/Chapter 6.tex} \label{chap:buildartifacts}
+\input{chapters/Chapter 7.tex} \label{chap:releasepipeline}
+\input{chapters/Chapter 8.tex} \label{chap:testingqa}
+\input{chapters/Chapter 9.tex} \label{chap:security}
+\input{chapters/Chapter 10.tex} \label{chap:results}
+\input{chapters/Chapter 11.tex} \label{chap:challenges}
 
-\input{chapters/Chapter 2.tex}
+\input{pages/Conclusion.tex} \label{conclusion}
 
-\input{chapters/Chapter 3.tex}
-
-\input{chapters/Chapter 4.tex}
-
-\input{pages/Conclusion.tex}
+\appendix
+\input{appendices/AppendixA.tex}
+\input{appendices/AppendixB.tex}
+\input{appendices/AppendixC.tex}
 
 \printbibliography[title=Bibliography, nottype=online]
 \printbibliography[title=Webography, type=online]
