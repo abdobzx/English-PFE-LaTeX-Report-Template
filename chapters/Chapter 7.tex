@@ -5,6 +5,7 @@ Once the CI pipeline successfully builds, tests, scans, and publishes the artifa
 
 \begin{figure}[htbp]
     \centering
+    \resizebox{\textwidth}{!}{
     \begin{verbatim}
 [CI Build Artifact 'drop']
         |
@@ -21,6 +22,7 @@ Once the CI pipeline successfully builds, tests, scans, and publishes the artifa
 +-------------------+      +-----------------------+      +-------------------------+      +-----------------------+
         | (Artifact Filter: Dev Branch Build)                  (Artifact Filter: QA Branch Build)                  (Artifact Filter: PreProd Branch Build)                 (Artifact Filter: Prod Branch Build)
     \end{verbatim}
+    }
     \caption{Conceptual Overview of Release Stages and Approvals}
     \label{fig:ReleaseStagesApprovals}
 \end{figure}
@@ -51,7 +53,8 @@ The core logic within the PowerShell deployment scripts typically involves:
         \item \textbf{Target Site(s) for App Installation:} \texttt{https://sothemalabdev.sharepoint.com/sites/DevTeamSite}, \texttt{https://sothemalabdev.sharepoint.com/sites/DevProjectX}
     \end{itemize}
     \item \textbf{Core PowerShell Script Snippet (\texttt{Invoke-DeployToDev.ps1} or parameterized \texttt{Invoke-DeployToEnvironment.ps1}):}
-\begin{verbatim}
+    \resizebox{\textwidth}{!}{
+    \begin{verbatim}
 param(
     [string]$TenantUrl,
     [string]$AppCatalogUrl,
@@ -88,6 +91,7 @@ try {
     Disconnect-PnPOnline
 }
 \end{verbatim}
+    }
     \item \textbf{Explanation:} This script connects using the provided credentials, uploads and publishes the SPFx package to the tenant App Catalog, and then iterates through target site URLs to install or update the application.
     \item \textbf{Approval Gates and Artifact Filters:}
     \begin{itemize}
@@ -155,6 +159,7 @@ try {
     \centering
     \caption{Deployment Stage Configuration Summary}
     \label{tab:DeploymentStageConfigSummary}
+    \resizebox{\textwidth}{!}{
     \begin{tabular}{|l|p{3.5cm}|p{3.5cm}|p{3.5cm}|p{3.5cm}|}
         \hline
         \textbf{Feature} & \textbf{Development (Dev)} & \textbf{Quality Assurance (QA)} & \textbf{Pre-Production (PreProd)} & \textbf{Production (Prod)} \\
@@ -172,6 +177,7 @@ try {
         Primary Purpose & Developer testing, initial integration & Formal testing, bug fixing verification & UAT, staging, soak testing & Live operational use \\
         \hline
     \end{tabular}
+    }
 \end{table}
 
 \section{Rollback and Error-Handling Strategies}

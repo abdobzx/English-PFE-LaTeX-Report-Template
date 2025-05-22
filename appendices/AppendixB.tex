@@ -8,6 +8,7 @@
 These are simplified examples. Real scripts would have more robust error handling, logging, and parameterization.
 
 \section{Connect-SharePointOnline.ps1 (Conceptual)}
+\resizebox{\textwidth}{!}{
 \begin{verbatim}
 # This logic is usually embedded within the main deployment script.
 # It assumes variables like $ClientId, $TenantId, $CertificateThumbprint, $TenantUrl are available.
@@ -21,8 +22,10 @@ These are simplified examples. Real scripts would have more robust error handlin
 #   throw # Re-throw to fail the pipeline task
 # }
 \end{verbatim}
+}
 
 \section{Publish-SPFxPackageToCatalog.ps1 (Conceptual)}
+\resizebox{\textwidth}{!}{
 \begin{verbatim}
 # This logic is usually embedded within the main deployment script.
 # Assumes $SPPackagePath and $AppCatalogUrl (if site collection app catalog) or tenant context.
@@ -43,8 +46,10 @@ These are simplified examples. Real scripts would have more robust error handlin
 # }
 # Return $app.Id or necessary app identifiers
 \end{verbatim}
+}
 
 \section{Install-SPFxSolutionToSite.ps1 (Conceptual)}
+\resizebox{\textwidth}{!}{
 \begin{verbatim}
 # This logic is usually embedded within the main deployment script.
 # Assumes $app (from publishing step) and $TargetSiteUrl.
@@ -59,8 +64,10 @@ These are simplified examples. Real scripts would have more robust error handlin
 #   throw
 # }
 \end{verbatim}
+}
 
 \section{Invoke-DeployToEnvironment.ps1 (Master Orchestration Script Example)}
+\resizebox{\textwidth}{!}{
 \begin{verbatim}
 [CmdletBinding()]
 param(
@@ -177,4 +184,5 @@ try {
     Disconnect-PnPOnline -ErrorAction SilentlyContinue
 }
 \end{verbatim}
-\textbf{Note:} This master script requires the PnP.PowerShell module to be installed on the agent. The Azure DevOps pipeline can include a step to install it if it's not pre-baked into the agent image: \texttt{Install-Module PnP.PowerShell -Force -SkipPublisherCheck -Scope CurrentUser}.
+}
+% ...existing code...
