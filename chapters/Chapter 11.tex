@@ -1,12 +1,115 @@
 \chapter{Challenges and Lessons Learned}
-\label{chap:challenges}
-% User's Section 12 Content
+\label{chapter:ChallengesLessonsLearned}
 
-% Challenges:
-% Configuring SharePoint environment for automation.
-% Integrating diverse security tools.
-% Managing SPFx dependencies.
-% Lessons learned:
-% Importance of thorough planning.
-% Need for close collaboration between development and operations teams.
-% Value of automation in improving efficiency and security.
+Throughout the four-month internship, we encountered several technical and organizational challenges. Overcoming these obstacles provided valuable lessons and contributed to the robustness of the final solution.
+
+\section{Technical Obstacles}
+\label{sec:TechnicalObstacles}
+
+\begin{enumerate}
+    \item \textbf{Certificate Handling for PowerShell in Azure Pipelines:}
+    \begin{itemize}
+        \item \textbf{Challenge:} Securely using a \texttt{.pfx} certificate for \texttt{Connect-PnPOnline} or \texttt{Connect-MsolService} within a non-interactive Azure Pipelines agent was initially complex. Storing the certificate, managing its password, and making it accessible to PowerShell scripts required careful configuration.
+        \item \textbf{Resolution:} We utilized Azure DevOps Secure Files to store the \texttt{.pfx} certificate and Azure Key Vault (linked via a Variable Group) to store its password and thumbprint. The \texttt{DownloadSecureFile} task made the certificate available on the agent, and PowerShell scripts were adapted to use these secure inputs. We also had to ensure the agent user context had appropriate permissions if installing the certificate into the certificate store was attempted (though directly using the file path and password with PnP PowerShell is often simpler).
+    \end{itemize}
+
+    \item \textbf{Playwright CI Flakiness:}
+    \begin{itemize}
+        \item \textbf{Challenge:} Early iterations of Playwright end-to-end tests sometimes exhibited flakiness, failing inconsistently in the CI environment despite passing locally. This was often due to timing issues, dynamic content loading, or differences in the headless browser environment on the agent.
+        \item \textbf{Resolution:}
+        \begin{itemize}
+            \item Implemented robust selectors that are less prone to breaking with minor UI changes.
+            \item Increased default timeouts and added explicit waits for elements to be visible or interactive (\texttt{waitForSelector}, \texttt{waitForNavigation}).
+            \item Utilized Playwright's debugging tools (tracing, screenshots on failure, videos) to diagnose issues occurring specifically in CI.
+            \item Ensured the SharePoint test page/environment used by Playwright was stable and consistently available.
+            \item Pinned browser versions used by Playwright to match those on the agent or ensured Playwright installed its own consistent versions.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Trivy Configuration and False Positives:}
+    \begin{itemize}
+        \item \textbf{Challenge:} Configuring Trivy to scan effectively and avoid an overwhelming number of low-priority or irrelevant vulnerabilities required fine-tuning. Initial scans sometimes flagged issues in development dependencies not packaged into the production build, or vulnerabilities with no available fixes.
+        \item \textbf{Resolution:}
+        \begin{itemize}
+            \item Focused Trivy scans on production dependencies by analyzing \texttt{package-lock.json} and targeting specific severities (\texttt{HIGH}, \texttt{CRITICAL}).
+            \item Utilized the \texttt{--ignore-unfixed} option to reduce noise from vulnerabilities without immediate solutions.
+            \item Established a process for reviewing flagged vulnerabilities and using a \texttt{.trivyignore} file to document and suppress accepted risks or false positives after proper vetting.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{SPFx Build Environment Consistency:}
+    \begin{itemize}
+        \item \textbf{Challenge:} Ensuring the Node.js, npm, and Gulp versions on the build agent were precisely aligned with developer environments and SPFx compatibility requirements was crucial to avoid "works on my machine" issues.
+        \item \textbf{Resolution:} Used the \texttt{NodeTool@0} task in Azure Pipelines to enforce a specific Node.js version. Encouraged developers to use \texttt{.nvmrc} files locally. \texttt{npm ci} was used for deterministic dependency installation based on \texttt{package-lock.json}.
+    \end{itemize}
+
+    \item \textbf{PowerShell Script Idempotency for Deployments:}
+    \begin{itemize}
+        \item \textbf{Challenge:} Ensuring deployment scripts could be run multiple times without adverse side effects (idempotency) was important, especially for retrying failed deployments or updating existing solutions.
+        \item \textbf{Resolution:} Scripts were written to check for the existence of apps or configurations before attempting to create or modify them. For example, \texttt{Add-PnPApp} with \texttt{-Overwrite} handles updates, and \texttt{Install-PnPApp} upgrades if the app is already installed.
+    \end{itemize}
+\end{enumerate}
+
+\section{Organizational Challenges}
+\label{sec:OrganizationalChallenges}
+
+\begin{enumerate}
+    \item \textbf{Approval Delays:}
+    \begin{itemize}
+        \item \textbf{Challenge:} Manual approval gates for QA, PreProd, and Prod stages, while necessary, sometimes led to delays in the deployment pipeline if approvers were unavailable or slow to respond.
+        \item \textbf{Resolution:}
+        \begin{itemize}
+            \item Clearly defined roles and responsibilities for approvals.
+            \item Configured notifications in Azure DevOps to alert approvers immediately when a deployment is pending their action.
+            \item Discussed establishing SLAs or expectations for approval turnaround times with stakeholders.
+            \item For QA, explored conditional approvals or automated promotion based on very high test pass rates for minor changes (though full manual approval was retained for this project's scope).
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Repository Governance and Branching Discipline:}
+    \begin{itemize}
+        \item \textbf{Challenge:} Ensuring all developers consistently followed the defined Git branching strategy and PR process required initial education and enforcement.
+        \item \textbf{Resolution:}
+        \begin{itemize}
+            \item Conducted training sessions on the Git workflow.
+            \item Implemented strict branch policies in Azure Repos (e.g., requiring PRs, reviewers, successful builds).
+            \item Regularly reviewed branch health and PR quality with the development team.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Managing Environment-Specific Configurations:}
+    \begin{itemize}
+        \item \textbf{Challenge:} SPFx solutions sometimes require different configurations for Dev, QA, and Prod environments (e.g., API endpoints, feature flags). Managing these securely and applying them correctly in each stage was a consideration.
+        \item \textbf{Resolution:} While not deeply implemented for this project's initial scope (which focused on the pipeline mechanics), we recommended using Azure App Configuration or environment-specific files that could be selected/transformed during the release stage. For this PFE, basic parameterization was handled by release stage variables in Azure DevOps.
+    \end{itemize}
+
+    \item \textbf{Initial Learning Curve for New Tools:}
+    \begin{itemize}
+        \item \textbf{Challenge:} Some team members were new to Azure DevOps YAML pipelines, Playwright, or Trivy. This required an initial investment in learning and experimentation.
+        \item \textbf{Resolution:} We dedicated time for learning, shared knowledge within the internship team, and utilized online documentation and tutorials. Starting with simpler pipeline configurations and iteratively adding complexity helped manage the learning curve.
+    \end{itemize}
+\end{enumerate}
+
+\section{How We Overcame Them and What We Would Improve}
+\label{sec:OvercomingChallengesImprovements}
+
+\begin{itemize}
+    \item \textbf{Overcoming Challenges:} The primary methods for overcoming challenges involved:
+    \begin{itemize}
+        \item \textbf{Iterative Development:} Starting simple and gradually adding features to the pipeline.
+        \item \textbf{Collaboration:} Working closely with Sothema's IT team and among ourselves.
+        \item \textbf{Research and Documentation:} Leveraging Microsoft Docs, tool documentation, and community forums.
+        \item \textbf{Persistent Troubleshooting:} Systematically diagnosing and resolving technical issues.
+        \item \textbf{Clear Communication:} Keeping stakeholders informed of progress and impediments.
+    \end{itemize}
+    \item \textbf{Areas for Future Improvement Based on Lessons Learned:}
+    \begin{itemize}
+        \item \textbf{Enhanced Test Automation:} Invest more time in increasing both unit and E2E test coverage. Explore contract testing for service dependencies.
+        \item \textbf{Dynamic Environment Provisioning for Testing:} For more complex E2E testing, explore ways to dynamically spin up and configure SharePoint test sites as part of the pipeline.
+        \item \textbf{More Sophisticated Configuration Management:} Implement a more robust solution for managing environment-specific SPFx solution configurations (e.g., Azure App Configuration).
+        \item \textbf{Pipeline Templates:} Develop Azure DevOps pipeline templates to make it easier to onboard new SPFx projects onto this CI/CD model.
+        \item \textbf{Dashboarding and Visibility:} Create more comprehensive dashboards in Azure DevOps to track pipeline health, deployment frequency, test results, and security scan trends over time.
+    \end{itemize}
+\end{itemize}
+
+This experience underscored that building effective CI/CD pipelines is not just a technical task but also involves process definition, team collaboration, and a commitment to continuous improvement.

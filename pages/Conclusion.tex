@@ -1,8 +1,71 @@
 \chapter*{Conclusion and Future Work}
 \addcontentsline{toc}{chapter}{Conclusion and Future Work}
 \label{conclusion}
-% User's Section 13 Content
 
-% Summary of achievements: Recap of the project's success in meeting its objectives.
-% Key takeaways: Lessons learned and skills acquired during the internship.
-% Future work: Potential enhancements and next steps for the CI/CD pipeline (e.g., integrating more security tools, expanding to other project types, implementing advanced monitoring and alerting).
+\section{Summary of Achievements}
+\label{sec:SummaryAchievements}
+
+Over the course of this four-month end-of-studies project at Sothema, we successfully designed, implemented, and documented a secure and automated CI/CD pipeline for SharePoint Framework (SPFx) solutions using Azure DevOps. The key achievements of this project include:
+
+\begin{enumerate}
+    \item \textbf{Fully Automated CI Process:} We established a YAML-based CI pipeline that automates the building, unit testing, SPFx packaging, vulnerability scanning (with Trivy), and end-to-end testing (with Playwright) of SPFx solutions.
+    \item \textbf{Structured Git Workflow:} A robust Git branching strategy (\texttt{future/*}, \texttt{Dev}, \texttt{QA}, \texttt{PreProd}, \texttt{Prod}) was implemented in Azure Repos, complete with branch policies, pull request requirements, and reviewer mandates to ensure code quality and controlled integrations.
+    \item \textbf{Multi-Stage Release Pipeline:} We developed a release pipeline with distinct stages for Development, QA, Pre-Production, and Production environments, enabling controlled promotion of SPFx solutions through the lifecycle.
+    \item \textbf{Integrated Security and Quality Assurance:} Automated security vulnerability scanning and comprehensive end-to-end testing are now integral parts of the deployment process, aligning with DevSecOps principles.
+    \item \textbf{Secure Authentication and Secrets Management:} Certificate-based authentication for the Azure AD service principal and secure storage of all credentials using Azure Key Vault and Azure DevOps Secure Files were implemented.
+    \item \textbf{Improved Deployment Efficiency and Reliability:} The pipeline significantly reduces manual intervention, shortens deployment times (average CI time ~8m 43s), and minimizes the risk of human error in deployments.
+    \item \textbf{Enhanced Governance and Control:} Pre-deployment approvals for QA, PreProd, and Prod stages, along with artifact filtering, ensure that only vetted and approved changes reach sensitive environments.
+    \item \textbf{Comprehensive Documentation:} The pipeline, its components, and operational procedures have been documented to facilitate understanding, maintenance, and future development.
+\end{enumerate}
+
+This project has provided Sothema with a modernized and efficient mechanism for managing the lifecycle of its SPFx customizations, laying a strong foundation for further DevOps maturity within the IT department.
+
+\section{Recommendations for Future Enhancements}
+\label{sec:RecommendationsFutureEnhancements}
+
+While the current pipeline meets the core objectives, several avenues for future work and enhancements could further increase its value and capabilities:
+
+\begin{enumerate}
+    \item \textbf{Automated Integration Tests on SharePoint Online:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} Develop and integrate automated integration tests that run directly against a provisioned SharePoint Online site after deployment. These tests would verify the SPFx solution's interaction with live SharePoint services and other integrated systems more deeply than E2E tests focused on UI.
+    \end{itemize}
+    \item \textbf{Extending Pipeline to Mobile SPFx Solutions:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} If Sothema develops SPFx solutions intended for mobile experiences (e.g., within Viva Connections or custom mobile apps consuming SharePoint data), adapt and extend the pipeline to include mobile-specific testing, packaging, or distribution considerations.
+    \end{itemize}
+    \item \textbf{Consider Migration to GitHub Actions (or explore further Azure DevOps features):}
+    \begin{itemize}
+        \item \textbf{Recommendation:} Evaluate the benefits of migrating to GitHub Actions, especially if Sothema's broader development ecosystem moves towards GitHub. GitHub Actions offers a vast marketplace of actions, strong community support, and tight integration with GitHub repositories. Alternatively, explore more advanced Azure DevOps features like Environments for Kubernetes or VM deployments if SPFx backends evolve.
+    \end{itemize}
+    \item \textbf{Advanced Configuration Management:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} Implement a more sophisticated solution for managing environment-specific configurations within SPFx solutions, such as integrating Azure App Configuration or using tokenization tasks in Azure Pipelines for dynamic configuration file updates.
+    \end{itemize}
+    \item \textbf{Automated SPFx Solution Version Bumping:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} Introduce a step in the CI pipeline to automatically increment the version number in \texttt{package-solution.json} based on the branch (e.g., patch version for \texttt{Dev}, minor for \texttt{QA} promotion) or commit messages (Conventional Commits).
+    \end{itemize}
+    \item \textbf{Enhanced Monitoring and Alerting:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} Set up more detailed monitoring dashboards in Azure DevOps (or integrate with tools like Azure Monitor) to track pipeline performance, deployment success rates, test coverage trends, and security vulnerabilities over time. Configure more granular alerts for specific failure conditions.
+    \end{itemize}
+    \item \textbf{Cost Optimization for Build Agents:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} If using Microsoft-hosted agents extensively leads to high costs, evaluate the use of self-hosted agents on Azure VMs, potentially with auto-scaling capabilities, for cost optimization, especially for longer or more frequent builds.
+    \end{itemize}
+    \item \textbf{Infrastructure as Code (IaC) for Test Environments:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} For creating and tearing down dedicated SharePoint test sites or site collections for E2E/integration testing, explore using PnP Provisioning templates or other IaC tools triggered by the pipeline.
+    \end{itemize}
+    \item \textbf{ChatOps Integration:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} Integrate pipeline notifications and approval requests with Sothema's corporate messaging platform (e.g., Microsoft Teams) for faster responses and better visibility (ChatOps).
+    \end{itemize}
+    \item \textbf{Wider Adoption and Templating:}
+    \begin{itemize}
+        \item \textbf{Recommendation:} Promote the adoption of this CI/CD model for all SPFx development projects within Sothema. Create standardized Azure DevOps YAML templates to make it easy to onboard new projects.
+    \end{itemize}
+\end{enumerate}
+
+By pursuing these future enhancements, Sothema can continue to build upon the foundation laid by this project, further optimizing its software delivery processes and reinforcing its commitment to technological innovation and operational excellence.

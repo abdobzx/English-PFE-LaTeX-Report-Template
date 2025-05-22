@@ -1,3 +1,185 @@
 % User's Section 14.1 Content
 
 % Full CI Pipeline YAML (for Azure DevOps)
+\chapter{Full CI Pipeline YAML (\texttt{azure-pipelines.yml})}
+\label{appendix:CIPipelineYAML}
+
+\begin{verbatim}
+# azure-pipelines.yml
+# CI Pipeline for SPFx Solutions at Sothema
+
+trigger:
+  branches:
+    include:
+      - Dev
+      - QA
+      - PreProd
+      - Prod
+  paths:
+    include:
+      - 'spfx-solution/*' # Assuming SPFx code is in a subfolder 'spfx-solution'
+      - 'scripts/deployment/*'
+    exclude:
+      - '*.md' # Exclude markdown file changes from triggering full CI
+
+pr:
+  branches:
+    include:
+      - Dev
+      - QA
+      - PreProd
+      - Prod
+  paths:
+    include:
+      - 'spfx-solution/*'
+    exclude:
+      - '*.md'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  # General variables
+  nodeVersion: '16.x' # Ensure this Node.js version is compatible with your SPFx version
+  projectFolderName: 'spfx-solution' # Folder containing the package.json for the SPFx project
+  solutionName: 'your-spfx-solution-name' # Replace with actual solution name for sppkg
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+  # Link to a Variable Group from Azure DevOps Library for secrets
+  # Example: group: 'Sothema-SPFx-Secrets' which contains:
+  # CLIENTID, TENANTID, THUMBPRINT, PFX_PASSWORD (for the cert)
+
+stages:
+- stage: Build_and_Test
+  displayName: 'Build, Test, Scan and Package SPFx Solution'
+  jobs:
+  - job: MainBuild
+    displayName: 'SPFx Build, Test, Scan & Package'
+    steps:
+    - task: NodeTool@0
+      inputs:
+        versionSpec: $(nodeVersion)
+      displayName: 'Install Node.js $(nodeVersion)'
+
+    - script: |
+        echo "NPM Version:"
+        npm --version
+        echo "Node Version:"
+        node --version
+        cd $(projectFolderName)
+        npm ci
+      displayName: 'Install npm dependencies'
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    - script: |
+        cd $(projectFolderName)
+        gulp test
+      displayName: 'Run Unit Tests (gulp test)'
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    - script: |
+        cd $(projectFolderName)
+        gulp bundle --ship
+        gulp package-solution --ship
+      displayName: 'Bundle and Package SPFx Solution'
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    # Trivy Scan
+    # Ensure Trivy is installed or use a marketplace task
+    # This example uses Aquasecurity's Trivy task
+    - task: Trivy@1
+      inputs:
+        scanType: 'fs' # Filesystem scan
+        scanTarget: '$(Build.SourcesDirectory)/$(projectFolderName)' # Path to scan
+        severity: 'HIGH,CRITICAL' # Severities to scan for
+        exitCode: '1' # Fail pipeline if vulnerabilities of specified severity are found
+        ignoreUnfixed: true # Ignore vulnerabilities that don't have a fix yet
+        format: 'table' # Output format
+        output: 'trivy-fs-report.txt' # Output file name
+        # ignoreFile: '.trivyignore' # Optional: specify path to .trivyignore file
+      displayName: 'Run Trivy Vulnerability Scan (Filesystem)'
+
+    # Playwright Tests
+    - script: |
+        cd $(projectFolderName)
+        npx playwright install --with-deps # Install browser binaries
+      displayName: 'Install Playwright browsers'
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    - script: |
+        cd $(projectFolderName)
+        # Assuming 'playwright:ci' script in package.json is like:
+        # "playwright:ci": "playwright test --reporter=junit,line,html"
+        npm run playwright:ci
+      displayName: 'Run Playwright End-to-End Tests'
+      workingDirectory: '$(Build.SourcesDirectory)'
+      continueOnError: false # Important: Fail the build if E2E tests fail
+
+    # Publish Test Results (Unit Tests)
+    # Ensure your test runner (Jest/Mocha) generates JUnit XML reports
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/junit.xml' # Adjust path as per your test runner output
+        searchFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)/temp/tests' # Common for SPFx default
+        mergeTestResults: true
+        failTaskOnFailedTests: true
+      displayName: 'Publish Unit Test Results'
+      condition: succeededOrFailed() # Run this even if previous tasks failed, to publish results
+
+    # Publish Test Results (Playwright E2E Tests)
+    - task: PublishTestResults@2
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: 'playwright-report/results.xml' # Default Playwright JUnit reporter output path
+        searchFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)'
+        mergeTestResults: true
+        failTaskOnFailedTests: true # Fail build if tests in results.xml failed
+      displayName: 'Publish Playwright E2E Test Results'
+      condition: succeededOrFailed()
+
+    # Prepare SPFx Package Artifact
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/$(projectFolderName)/sharepoint/solution'
+        Contents: '*.sppkg'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/sppkg'
+      displayName: 'Copy SPFx Package to Staging Directory'
+
+    # Prepare PowerShell Scripts Artifact
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/scripts/deployment' # Location of your deployment scripts
+        Contents: '*.ps1'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/scripts'
+      displayName: 'Copy PowerShell Scripts to Staging Directory'
+
+    # Prepare Trivy Report Artifact
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(System.DefaultWorkingDirectory)' # Assuming trivy-fs-report.txt is at root or adjust
+        Contents: 'trivy-fs-report.txt'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/scan-reports'
+        overwrite: true
+      displayName: 'Copy Trivy Scan Report to Staging Directory'
+
+    # Prepare Playwright HTML Report Artifact
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)/playwright-report' # Default Playwright HTML report location
+        Contents: '**' # Copy all contents of the HTML report folder
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/playwright-html-report'
+        overwrite: true
+      displayName: 'Copy Playwright HTML Report to Staging Directory'
+
+    # Publish All Staged Artifacts
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop-$(Build.BuildNumber)' # Include BuildNumber for uniqueness if needed, or just 'drop'
+        publishLocation: 'Container'
+      displayName: 'Publish Build Artifacts (sppkg, scripts, reports)'
+\end{verbatim}
+
+\textbf{Note:} The \texttt{solutionName} variable should be dynamically determined or correctly set if your \texttt{.sppkg} file name is variable. The provided YAML assumes a consistent project structure and script locations. Adjust paths as necessary for your specific project. Remember to create the Variable Group \texttt{Sothema-SPFx-Secrets} in Azure DevOps Library and link it to this pipeline, populating it with \texttt{CLIENTID}, \texttt{TENANTID}, \texttt{THUMBPRINT}, and \texttt{PFX\_PASSWORD}.

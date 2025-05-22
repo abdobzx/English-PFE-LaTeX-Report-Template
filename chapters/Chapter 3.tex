@@ -1,8 +1,141 @@
 \chapter{Project Overview}
-\label{chap:projectoverview}
-% User's Section 4 Content
+\label{chapter:ProjectOverview}
 
-% Detailed description of the project: Goals, deliverables, and success criteria.
-% Technologies used: SharePoint Framework (SPFx), Azure DevOps, Git, PowerShell, Docker (optional).
-% Project timeline: Key milestones and deadlines.
-% Methodology: Agile/Scrum approach.
+\section{Requirements Gathering}
+\label{sec:RequirementsGathering}
+
+The initial phase of our project involved a thorough requirements gathering process to ensure the CI/CD pipeline would meet Sothema's operational and technical needs for deploying SharePoint Framework (SPFx) solutions. We collaborated with IT stakeholders, including SharePoint developers and administrators.
+
+\subsection{Functional Requirements}
+\label{subsec:FunctionalRequirements}
+
+The functional requirements define what the system must do:
+\begin{itemize}
+    \item \textbf{FR1: Automated Build:} The system shall automatically trigger a build process upon code commit to designated branches in the Azure Repos repository.
+    \item \textbf{FR2: SPFx Packaging:} The pipeline must correctly bundle and package the SPFx solution into a \texttt{.sppkg} file.
+    \item \textbf{FR3: Versioning:} The \texttt{.sppkg} file and other build artifacts must be versioned consistently.
+    \item \textbf{FR4: Automated Unit Testing:} The pipeline shall execute Node.js-based unit tests (e.g., using \texttt{gulp test}) and fail the build if tests do not pass.
+    \item \textbf{FR5: Automated End-to-End Testing:} The pipeline shall execute Playwright end-to-end tests against a SharePoint workbench or a designated test site.
+    \item \textbf{FR6: Vulnerability Scanning:} The pipeline must scan Docker images and application dependencies for known vulnerabilities (e.g., using Trivy).
+    \item \textbf{FR7: Multi-Environment Deployment:} The pipeline must support deployment to multiple SharePoint Online environments: Development (Dev), Quality Assurance (QA), Pre-Production (PreProd), and Production (Prod).
+    \item \textbf{FR8: App Catalog Management:} The pipeline shall automate the upload and publishing of the \texttt{.sppkg} file to the SharePoint App Catalog for each environment.
+    \item \textbf{FR9: Solution Deployment to Sites:} The pipeline shall automate the installation/update of the SPFx solution on specified target SharePoint sites within each environment.
+    \item \textbf{FR10: List Creation (if applicable):} The pipeline should be capable of running post-deployment scripts to create or update SharePoint lists required by the SPFx solution.
+    \item \textbf{FR11: Approval Gates:} Manual approval gates must be implemented before deployment to QA, PreProd, and Prod environments.
+    \item \textbf{FR12: Notifications:} The pipeline should provide notifications for build/deployment success or failure.
+    \item \textbf{FR13: Artifact Storage:} Build artifacts must be stored securely and be accessible for review and deployment.
+    \item \textbf{FR14: Rollback Capability:} The release pipeline should facilitate rollback to a previous stable version in case of deployment failure (achieved by re-deploying a previous successful artifact).
+\end{itemize}
+
+\subsection{Non-Functional Requirements}
+\label{subsec:NonFunctionalRequirements}
+
+Non-functional requirements define the quality attributes of the system:
+\begin{itemize}
+    \item \textbf{NFR1: Security:}
+    \begin{itemize}
+        \item Secure management of credentials (e.g., SharePoint Online credentials, Azure AD service principal details) using Azure Key Vault.
+        \item Enforcement of least privilege for the service principal used by the pipeline.
+        \item Vulnerability scanning policies must fail the build for HIGH or CRITICAL severity vulnerabilities.
+    \end{itemize}
+    \item \textbf{NFR2: Reliability:} The pipeline must be robust and handle transient errors gracefully (e.g., network issues during deployment, with retry mechanisms if feasible).
+    \item \textbf{NFR3: Performance:} The CI pipeline execution time should be optimized (e.g., aiming for completion within 10-15 minutes for a typical SPFx project).
+    \item \textbf{NFR4: Maintainability:}
+    \begin{itemize}
+        \item The pipeline configuration (YAML) must be well-documented and easy to understand.
+        \item Scripts used in the pipeline (PowerShell) must be modular and reusable.
+    \end{itemize}
+    \item \textbf{NFR5: Usability:} The pipeline status, logs, and reports should be easily accessible to developers and IT operations personnel via the Azure DevOps portal.
+    \item \textbf{NFR6: Scalability:} The pipeline design should accommodate an increasing number of SPFx solutions and developers over time.
+    \item \textbf{NFR7: Traceability:} All pipeline executions, approvals, and deployments must be logged for audit purposes.
+    \item \textbf{NFR8: Compliance:} The pipeline should support adherence to Sothema's internal IT governance and security policies.
+\end{itemize}
+
+\section{High-Level Architecture}
+\label{sec:HighLevelArchitecture}
+
+The CI/CD pipeline was designed using Azure DevOps as the central orchestration platform. The architecture integrates several key components to automate the build, test, scan, and deployment of SPFx solutions.
+
+\begin{figure}[htbp]
+    \centering
+    \begin{verbatim}
++---------------------+     +---------------------+     +-----------------------+
+|   Azure Repos       |<--->| Azure Pipelines (CI)|<--->|   Build Agent (Host)  |
+| (Git Repository)    |     | (YAML Definition)   |     | (e.g., ubuntu-latest) |
+| - Source Code       |     +---------------------+     |  - Node.js            |
+| - Branch Strategy   |                                 |  - Gulp               |
++---------------------+                                 |  - Docker Client      |
+                                                        +--------+--------------+
+                                                                 |
+                                                                 v
++-------------------------------------------------------------------------------------------------+
+| Build Agent Operations:                                                                         |
+|                                                                                                 |
+|  1. Checkout Code                                                                               |
+|  2. Install Node.js & Dependencies (npm ci)                                                      |
+|  3. Run Unit Tests (gulp test)                                                                  |
+|  4. Build SPFx Solution (gulp bundle --ship, gulp package-solution --ship)                      |
+|  5. Build Docker Image (for scanning environment - optional for direct SPFx builds)             |
+|  6. Run Trivy Scan (on dependencies or container)                                               |
+|  7. Run Playwright E2E Tests (npm run test:playwright)                                          |
+|  8. Publish Artifacts (.sppkg, test reports, scan reports, PowerShell scripts) to Azure Artifacts|
++-------------------------------------------------------------------------------------------------+
+                                                                 |
+                                                                 v
++-------------------------+     +-----------------------------------------------------------------+
+| Azure Pipelines (Release)|<--->| Deployment Tasks (PowerShell using Office 365 CLI / PnP PowerShell)|
+| (Multi-Stage)           |     |                                                                 |
+| - Dev Stage             |     |  For each Stage (Dev, QA, PreProd, Prod):                       |
+| - QA Stage (Approval)   |     |   1. Download Artifacts                                         |
+| - PreProd Stage (Approval)|   |   2. Connect to SharePoint Online (using Service Principal)     |
+| - Prod Stage (Approval) |     |   3. Add/Upload .sppkg to App Catalog                           |
++-------------------------+     |   4. Deploy/Install .sppkg to Target Site Collection(s)         |
+                                |   5. Run Post-Deployment Scripts (e.g., Create Lists)           |
+                                |   6. Disconnect from SharePoint Online                          |
+                                +-----------------------+-----------------------------------------+
+                                                        |
+                                                        v
+        +-------------------------+      +-------------------------+
+        | SharePoint Online (Dev) |      | SharePoint Online (QA)  |
+        | - App Catalog           |      | - App Catalog           |
+        | - Target Site(s)        |      | - Target Site(s)        |
+        +-------------------------+      +-------------------------+
+        +-------------------------+      +-------------------------+
+        | SharePoint Online (PreP)|      | SharePoint Online (Prod)|
+        | - App Catalog           |      | - App Catalog           |
+        | - Target Site(s)        |      | - Target Site(s)        |
+        +-------------------------+      +-------------------------+
+    \end{verbatim}
+    \caption{High-Level CI/CD Pipeline Architecture}
+    \label{fig:HighLevelArchitecture}
+\end{figure}
+
+\textbf{Key Components:}
+\begin{enumerate}
+    \item \textbf{Azure Repos:} Hosts the Git repository containing the SPFx solution source code. It enforces the branch strategy and pull request policies.
+    \item \textbf{Azure Pipelines (CI):} Defined by a YAML file (\texttt{azure-pipelines.yml}). This pipeline is triggered by commits to specific branches. It performs:
+    \begin{itemize}
+        \item Code checkout.
+        \item Node.js environment setup and dependency installation.
+        \item Unit testing.
+        \item SPFx solution bundling and packaging.
+        \item (Optional) Building a Docker image if the build/scan process is containerized.
+        \item \textbf{Trivy Scan:} Security vulnerability scanning of dependencies or the Docker image.
+        \item \textbf{Playwright Tests:} Execution of end-to-end UI tests.
+        \item Publishing build artifacts (the \texttt{.sppkg} file, test reports, scan reports, deployment scripts).
+    \end{itemize}
+    \item \textbf{Build Agents:} Microsoft-hosted agents (e.g., \texttt{ubuntu-latest}) or self-hosted agents execute the CI pipeline jobs. They are equipped with necessary tools like Node.js, npm/yarn, Gulp, Docker client (if used), and browsers for Playwright.
+    \item \textbf{Docker (Optional for build, used by Trivy):} While the SPFx build itself doesn't strictly require Docker, Trivy often operates on Docker images or file systems. If a consistent build environment is paramount, the entire build process can be containerized. In our setup, Trivy primarily scans project dependencies and potentially a build-environment Docker image if one were used.
+    \item \textbf{Trivy:} An open-source vulnerability scanner integrated into the CI pipeline to detect security issues in application dependencies (via \texttt{package-lock.json} or \texttt{yarn.lock}) and/or Docker images.
+    \item \textbf{Playwright:} A Node.js library for browser automation, used to run end-to-end tests against the SPFx components in a headless browser.
+    \item \textbf{Azure Pipelines (Release):} Manages the deployment of artifacts to different SharePoint Online environments. It consists of multiple stages (Dev, QA, PreProd, Prod).
+    \begin{itemize}
+        \item Each stage downloads the necessary artifacts.
+        \item It uses \textbf{PowerShell scripts} (leveraging modules like PnP.PowerShell or the Office 365 CLI) to interact with SharePoint Online.
+        \item Secure authentication is handled via an Azure AD App Registration (Service Principal) with certificate-based authentication.
+    \end{itemize}
+    \item \textbf{PowerShell Scripts:} A suite of scripts for tasks like connecting to SharePoint Online, uploading/publishing the \texttt{.sppkg} to the App Catalog, installing the solution on target sites, creating SharePoint lists, and disconnecting.
+    \item \textbf{SharePoint Online Sites:} The target environments, each typically having its own App Catalog and site collections for Dev, QA, PreProd, and Prod.
+\end{enumerate}
+
+This architecture provides a clear separation of concerns, automates repetitive tasks, and integrates security and quality checks early in the development lifecycle.

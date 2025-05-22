@@ -1,9 +1,145 @@
 \chapter{Security and Compliance}
-\label{chap:security}
-% User's Section 10 Content
+\label{chapter:SecurityCompliance}
 
-% SAST: SonarQube for static code analysis.
-% DAST: OWASP ZAP for dynamic application security testing.
-% Dependency analysis: WhiteSource/GitHub Dependabot for vulnerability scanning of third-party libraries.
-% Secrets management: Azure Key Vault for secure storage of credentials and API keys.
-% Least privilege principles: Restricted access to Azure DevOps and SharePoint resources.
+Security is a critical aspect of any CI/CD pipeline, especially in regulated industries like pharmaceuticals. Our design incorporates several security measures and adheres to compliance best practices.
+
+\section{Certificates (.pfx) Usage, Azure AD Service Principal (Client ID, Thumbprint)}
+\label{sec:CertificatesAzureAD}
+
+To enable the pipeline to authenticate with SharePoint Online and Azure resources non-interactively and securely, we utilized an Azure Active Directory (Azure AD) App Registration, commonly referred to as a Service Principal.
+
+\begin{itemize}
+    \item \textbf{Azure AD App Registration (Service Principal):}
+    \begin{itemize}
+        \item An application was registered in Sothema's Azure AD.
+        \item This app was granted specific API permissions required to interact with SharePoint Online (e.g., \texttt{Sites.FullControl.All} or more granular permissions like \texttt{Sites.Selected} for specific site collections, and \texttt{AppCatalog.ReadWrite.All} for managing applications in the App Catalog). It's crucial to follow the principle of least privilege.
+        \item The \textbf{Client ID} (Application ID) and \textbf{Tenant ID} of this app registration are used in the pipeline configuration.
+    \end{itemize}
+    \item \textbf{Certificate-Based Authentication:}
+    \begin{itemize}
+        \item Instead of using client secrets (which can be less secure and expire), we opted for certificate-based authentication for the service principal.
+        \item A self-signed or CA-issued X.509 certificate was generated. The public key of this certificate was uploaded to the Azure AD App Registration.
+        \item The private key, along with the public certificate, was exported as a \texttt{.pfx} (or \texttt{.p12}) file.
+        \item \textbf{Secure Storage of \texttt{.pfx}:} This \texttt{.pfx} file is a highly sensitive secret. It was uploaded to \textbf{Azure DevOps Library > Secure Files}. A password was set for the \texttt{.pfx} file.
+        \item \textbf{Password for \texttt{.pfx}:} The password for the \texttt{.pfx} file was stored as a secret in \textbf{Azure Key Vault}.
+        \item \textbf{Certificate Thumbprint:} The \textbf{Thumbprint} of the certificate is also required for authentication and was stored as a secret in Azure Key Vault.
+        \item \textbf{Pipeline Usage:}
+        \begin{enumerate}
+            \item The \texttt{DownloadSecureFile@1} task in Azure Pipelines downloads the \texttt{.pfx} file to the agent during pipeline execution.
+            \item The Client ID, Tenant ID, Certificate Thumbprint, and PFX password (retrieved from Azure Key Vault via a linked Variable Group) are made available as environment variables.
+            \item PowerShell scripts (e.g., using \texttt{Connect-PnPOnline}) then use these details to authenticate to SharePoint Online:
+\begin{verbatim}
+Connect-PnPOnline -Url $env:SP_ONLINE_URL -ClientId $env:CLIENTID -Tenant $env:TENANT -Thumbprint $env:THUMBPRINT
+# Or if PFX file path and password are used directly:
+# Connect-PnPOnline -Url $env:SP_ONLINE_URL -ClientId $env:CLIENTID -Tenant $env:TENANT -CertificatePath $path_to_pfx -CertificatePassword $env:PFX_PASSWORD
+\end{verbatim}
+        \end{enumerate}
+    \end{itemize}
+\end{itemize}
+
+This method provides a robust and secure way for the automated pipeline to access necessary resources without hardcoding credentials or using less secure authentication schemes.
+
+\section{Trivy Policy (HIGH, CRITICAL) and Ignore Rules}
+\label{sec:TrivyPolicyIgnoreRules}
+
+To manage findings from the Trivy vulnerability scanner effectively:
+
+\begin{itemize}
+    \item \textbf{Severity Threshold:}
+    \begin{itemize}
+        \item The CI pipeline was configured to fail if Trivy detects any vulnerabilities of \textbf{HIGH} or \textbf{CRITICAL} severity. This is set using the \texttt{severity} parameter in the Trivy task/command.
+        \item \texttt{Trivy@1} task input: \texttt{severity: 'HIGH,CRITICAL'}
+        \item \texttt{Trivy@1} task input: \texttt{exitCode: '1'} (ensures pipeline failure on finding such issues)
+    \end{itemize}
+    \item \textbf{Ignoring Vulnerabilities (\texttt{.trivyignore}):}
+    \begin{itemize}
+        \item There are legitimate cases where a vulnerability might be a false positive, accepted as a risk after review, or has a fix that breaks functionality. For such scenarios, a \texttt{.trivyignore} file can be maintained at the root of the repository.
+        \item This file lists CVE IDs (Common Vulnerabilities and Exposures identifiers) that Trivy should ignore.
+\begin{verbatim}
+# .trivyignore example
+CVE-2023-xxxx  # Reason: Accepted risk by security team, mitigation in place.
+CVE-2023-yyyy  # Reason: False positive for our usage context.
+\end{verbatim}
+        \item The Trivy scan command in the pipeline is configured to use this ignore file (e.g., \texttt{trivy fs --ignorefile .trivyignore .}).
+    \end{itemize}
+    \item \textbf{\texttt{ignoreUnfixed: true}:}
+    \begin{itemize}
+        \item This option was also enabled in the Trivy configuration. It tells Trivy to ignore vulnerabilities for which no patched version of the affected package is yet available from the vendor. This helps focus on actionable vulnerabilities.
+    \end{itemize}
+\end{itemize}
+
+This policy ensures that critical security flaws are addressed before deployment, while providing a mechanism to manage exceptions in a controlled and documented manner.
+
+\section{Separation of Duties via Branch Permissions and Approvals}
+\label{sec:SeparationOfDuties}
+
+Separation of duties is a key security principle to prevent unilateral actions and reduce the risk of errors or malicious activities. We implemented this through:
+
+\begin{itemize}
+    \item \textbf{Branch Policies and Permissions (Azure Repos):}
+    \begin{itemize}
+        \item \textbf{Developers:} Can only push to \texttt{future/*} branches and create pull requests (PRs) to \texttt{Dev}. They cannot directly merge to \texttt{Dev} or any higher environment branch.
+        \item \textbf{Reviewers:} At least two reviewers are required to approve PRs targeting \texttt{Dev}. This ensures code is reviewed before integration.
+        \item \textbf{Promotion to QA/PreProd/Prod:} Merges to \texttt{QA}, \texttt{PreProd}, and \texttt{Prod} branches are also via PRs, requiring approvals from different stakeholders (e.g., QA Lead for \texttt{QA}, Product Owner for \texttt{PreProd}, IT Management for \texttt{Prod}).
+    \end{itemize}
+    \item \textbf{Release Pipeline Approval Gates (Azure Pipelines):}
+    \begin{itemize}
+        \item \textbf{Dev Stage:} No manual approval for deployment, allowing rapid feedback for developers.
+        \item \textbf{QA Stage:} Manual pre-deployment approval required from QA personnel.
+        \item \textbf{PreProd Stage:} Manual pre-deployment approval required, typically from UAT coordinators or business representatives.
+        \item \textbf{Prod Stage:} Manual pre-deployment approval required from senior management or designated release approvers.
+    \end{itemize}
+\end{itemize}
+
+This multi-layered approval process ensures that code changes and deployments are vetted by multiple individuals/teams at different stages, reducing the risk of unauthorized or flawed releases.
+
+\section{Recommendations for Hardening}
+\label{sec:RecommendationsHardening}
+
+While the current pipeline implements significant security measures, further hardening can be considered:
+
+\begin{enumerate}
+    \item \textbf{Scan Frequency:}
+    \begin{itemize}
+        \item Currently, Trivy scans run on every CI build. Consider adding scheduled scans of key repositories (especially \texttt{Prod} branch) independently of builds to catch newly disclosed vulnerabilities in existing deployed code.
+    \end{itemize}
+    \item \textbf{Secret Rotation:}
+    \begin{itemize}
+        \item Implement a formal policy and process for regularly rotating the \texttt{.pfx} certificate used by the service principal (e.g., annually).
+        \item Regularly review and rotate any other secrets or passwords stored in Azure Key Vault.
+    \end{itemize}
+    \item \textbf{Principle of Least Privilege Review:}
+    \begin{itemize}
+        \item Periodically review the API permissions granted to the Azure AD service principal. Ensure it only has the absolute minimum permissions required to perform its tasks in each environment. For instance, using SharePoint's \texttt{Sites.Selected} permission model instead of \texttt{Sites.FullControl.All} where feasible.
+    \end{itemize}
+    \item \textbf{Static Application Security Testing (SAST):}
+    \begin{itemize}
+        \item Integrate a SAST tool (e.g., SonarCloud, Veracode, Checkmarx, or linters with security plugins like ESLint security rules) to analyze the source code for potential security flaws beyond just dependency vulnerabilities.
+    \end{itemize}
+    \item \textbf{Dynamic Application Security Testing (DAST):}
+    \begin{itemize}
+        \item For more mature setups, consider integrating DAST tools that test the running application in a test environment for vulnerabilities like XSS, CSRF, etc.
+    \end{itemize}
+    \item \textbf{Agent Security:}
+    \begin{itemize}
+        \item If using self-hosted build agents, ensure they are hardened, patched regularly, and run with minimal privileges. Microsoft-hosted agents are managed by Microsoft, which reduces this burden.
+    \end{itemize}
+    \item \textbf{Dependency Management Policy:}
+    \begin{itemize}
+        \item Establish a policy for regularly updating dependencies to their latest secure versions. Tools like Dependabot (for GitHub, or similar for Azure Repos) can help automate the creation of PRs for dependency updates.
+    \end{itemize}
+    \item \textbf{Audit Log Review:}
+    \begin{itemize}
+        \item Regularly review Azure DevOps audit logs and Azure AD sign-in logs for the service principal to detect any suspicious activity.
+    \end{itemize}
+    \item \textbf{Immutable Artifacts:}
+    \begin{itemize}
+        \item Ensure that build artifacts, once created, are not modified. Azure Artifacts generally supports this.
+    \end{itemize}
+    \item \textbf{Secure YAML Definitions:}
+    \begin{itemize}
+        \item Protect the \texttt{azure-pipelines.yml} file in the \texttt{Prod} branch with strict review policies, as changes to this file can alter the pipeline's behavior, including security checks.
+    \end{itemize}
+\end{enumerate}
+
+By implementing these security measures and recommendations, Sothema can maintain a robust and secure CI/CD pipeline for its SPFx solutions.

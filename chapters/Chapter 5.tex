@@ -1,15 +1,290 @@
 \chapter{CI Pipeline Design}
-\label{chap:cipipeline}
-% User's Section 6 Content
+\label{chapter:CIPipelineDesign}
 
-% Triggers: Commits and PRs to develop and main branches.
-% Stages:
-% 1. Checkout code.
-% 2. Install dependencies.
-% 3. Run linters and formatters.
-% 4. Run unit tests.
-% 5. Run integration tests.
-% 6. Run security scans (SAST, dependency analysis).
-% 7. Build application.
-% 8. Publish artifacts.
-% Tools: Azure Pipelines, ESLint, Prettier, Jest, SonarQube, WhiteSource.
+The Continuous Integration (CI) pipeline is the backbone of our automated deployment system. It is responsible for taking the source code from Azure Repos, building it, testing it, scanning it for vulnerabilities, and producing deployable artifacts. We designed and implemented this pipeline using Azure Pipelines with a YAML specification.
+
+\section{YAML Specification Overview}
+\label{sec:YAMLOverview}
+
+The CI pipeline is defined in an \texttt{azure-pipelines.yml} file stored at the root of the SPFx solution's Git repository. This "pipeline-as-code" approach allows for version control, review, and easy replication of the pipeline configuration.
+
+The YAML file typically includes the following main sections:
+\begin{itemize}
+    \item \textbf{\texttt{trigger}}: Specifies which branches will trigger the pipeline automatically (e.g., \texttt{Dev}, \texttt{QA}, \texttt{PreProd}, \texttt{Prod}, \texttt{future/*}).
+    \item \textbf{\texttt{pool}}: Defines the agent pool to be used (e.g., \texttt{vmImage: 'ubuntu-latest'} for Microsoft-hosted agents).
+    \item \textbf{\texttt{variables}}: Declares pipeline variables, including those linked to Azure Key Vault for secrets.
+    \item \textbf{\texttt{stages} / \texttt{jobs} / \texttt{steps}}: Defines the structure of the pipeline. We used a single-stage CI pipeline with multiple jobs or a sequence of steps for build, test, and scan operations.
+\end{itemize}
+
+Below is a conceptual structure of the YAML. The full YAML is provided in Appendix A.
+
+\begin{verbatim}
+# azure-pipelines.yml (Conceptual Structure)
+trigger:
+  branches:
+    include:
+      - Dev
+      - QA
+      - PreProd
+      - Prod
+      - refs/heads/future/* # For PR validation builds
+pr:
+  branches:
+    include:
+      - Dev # PRs targeting Dev
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  # General variables
+  nodeVersion: '16.x' # Specify Node.js version compatible with SPFx
+  projectFolderName: 'spfx-solution' # Name of the folder containing package.json
+
+  # Secrets linked from Azure Key Vault (example names)
+  # These are typically configured in pipeline settings and mapped to variable groups
+  # CERTIFICATEPATH: $(AzureKeyVaultSecret_CertificatePath) - Path if cert is checked in (not recommended)
+  # Or for certificate file from secure files:
+  # CERTIFICATE_P12_SECUREFILE_NAME: 'sothema-spfx-deploy-cert.p12'
+  # CERTIFICATE_PASSWORD_SECRET: $(PfxPassword)
+  THUMBPRINT: $(AzureKeyVaultSecret_Thumbprint)
+  CLIENTID: $(AzureKeyVaultSecret_ClientId)
+  TENANT: $(AzureKeyVaultSecret_TenantId)
+  # SPPKGPATH might be dynamically generated or a fixed relative path after build
+  # SP_ONLINE_URL_DEV, SP_USERNAME_DEV, SP_PASSWORD_DEV etc. for different envs
+
+stages:
+- stage: Build_and_Test
+  displayName: 'Build, Test, Scan and Package SPFx Solution'
+  jobs:
+  - job: MainBuild
+    displayName: 'SPFx Build, Test & Scan'
+    steps:
+    - task: NodeTool@0 # 1. Install Node.js
+      inputs:
+        versionSpec: $(nodeVersion)
+      displayName: 'Install Node.js $(nodeVersion)'
+
+    - script: | # 2. Install Dependencies
+        cd $(projectFolderName)
+        npm ci
+      displayName: 'Install npm dependencies'
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    - script: | # 3. Run Unit Tests
+        cd $(projectFolderName)
+        gulp test
+      displayName: 'Run Unit Tests (gulp test)'
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    - script: | # 4. Build SPFx Solution
+        cd $(projectFolderName)
+        gulp bundle --ship
+        gulp package-solution --ship
+      displayName: 'Bundle and Package SPFx Solution'
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    # 5. Docker Image build step would be here if containerizing the build or app
+    # For Trivy filesystem scan, Docker isn't strictly needed for this step
+
+    - task: Trivy@1 # 6. Trivy Vulnerability Scan
+      inputs:
+        scanType: 'fs'
+        scanTarget: '$(Build.SourcesDirectory)/$(projectFolderName)' # Scan project files
+        severity: 'HIGH,CRITICAL'
+        exitCode: '1' # Fail pipeline on vulnerabilities
+        ignoreUnfixed: true
+        format: 'table'
+        output: 'trivy-report.txt'
+        # Add other Trivy parameters like --ignorefile if needed
+      displayName: 'Run Trivy Vulnerability Scan on Filesystem'
+
+    # Playwright installation and execution
+    - script: | # 7. Install Playwright Browsers
+        cd $(projectFolderName)
+        npx playwright install --with-deps
+      displayName: 'Install Playwright browsers'
+      workingDirectory: '$(Build.SourcesDirectory)'
+
+    - script: | # 8. Run Playwright E2E Tests
+        cd $(projectFolderName)
+        npm run playwright:ci # Assuming a script in package.json like "playwright test --reporter=junit,line"
+      displayName: 'Run Playwright End-to-End Tests'
+      workingDirectory: '$(Build.SourcesDirectory)'
+      continueOnError: false # Fail pipeline if Playwright tests fail
+
+    - task: PublishTestResults@2 # 9. Publish Unit Test Results (if Jest/Mocha generate JUnit XML)
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/junit.xml' # Path to unit test results
+        searchFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)/temp/tests'
+        mergeTestResults: true
+        failTaskOnFailedTests: true
+      displayName: 'Publish Unit Test Results'
+      condition: succeededOrFailed() # Publish even if prior steps failed
+
+    - task: PublishTestResults@2 # 10. Publish Playwright Test Results
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: 'playwright-report/results.xml' # Adjust path as per Playwright config
+        searchFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)'
+        mergeTestResults: true
+        failTaskOnFailedTests: true
+      displayName: 'Publish Playwright E2E Test Results'
+      condition: succeededOrFailed()
+
+    - task: CopyFiles@2 # 11. Prepare SPFx Package Artifact
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/$(projectFolderName)/sharepoint/solution'
+        Contents: '*.sppkg'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/sppkg'
+      displayName: 'Copy SPFx Package to Staging'
+
+    - task: CopyFiles@2 # 12. Prepare PowerShell Scripts Artifact
+      inputs:
+        SourceFolder: '$(Build.SourcesDirectory)/scripts/deployment' # Assuming scripts are here
+        Contents: '*.ps1'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/scripts'
+      displayName: 'Copy PowerShell Scripts to Staging'
+
+    - task: PublishBuildArtifacts@1 # 13. Publish All Artifacts
+      inputs:
+        PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+        ArtifactName: 'drop'
+        publishLocation: 'Container'
+      displayName: 'Publish Build Artifacts (sppkg, scripts, reports)'
+
+    # Potentially publish Trivy scan report and Playwright HTML report as artifacts too
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)'
+        Contents: 'trivy-report.txt' # Trivy text report
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/scans'
+      displayName: 'Copy Trivy Report to Staging'
+
+    - task: CopyFiles@2
+      inputs:
+        SourceFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)/playwright-report' # Playwright HTML report
+        Contents: '**'
+        TargetFolder: '$(Build.ArtifactStagingDirectory)/playwright-html-report'
+      displayName: 'Copy Playwright HTML Report to Staging'
+\end{verbatim}
+
+\section{Detailed Description of CI Steps}
+\label{sec:CIDetailedSteps}
+
+\begin{enumerate}
+    \item \textbf{Install Node.js (\texttt{NodeTool@0}):
+    \begin{itemize}
+        \item Ensures that the specified version of Node.js (e.g., 16.x, compatible with the SPFx version) is available on the build agent. This is crucial for consistency.
+    \end{itemize}
+    \item \textbf{Install Dependencies (\texttt{npm ci}):
+    \begin{itemize}
+        \item \texttt{cd \$(projectFolderName)}: Navigates to the directory containing \texttt{package.json}.
+        \item \texttt{npm ci}: Installs project dependencies cleanly based on the \texttt{package-lock.json} file. This is preferred over \texttt{npm install} for CI environments as it provides more deterministic builds.
+    \end{itemize}
+    \item \textbf{Run Unit Tests (\texttt{gulp test}):
+    \begin{itemize}
+        \item \texttt{gulp test}: Executes the unit test suite defined in the project's \texttt{gulpfile.js}. This typically uses frameworks like Jest or Mocha via SharePoint's build toolchain. If tests fail, the pipeline stops.
+        \item \textit{Screenshot/Pseudocode:} In Azure DevOps, this step would show logs of the test execution and results.
+    \end{itemize}
+    \item \textbf{Build SPFx Solution (\texttt{gulp bundle --ship}, \texttt{gulp package-solution --ship}):
+    \begin{itemize}
+        \item \texttt{gulp bundle --ship}: Compiles, transpiles, and bundles the SPFx solution assets for production (minified, optimized).
+        \item \texttt{gulp package-solution --ship}: Creates the SharePoint package (\texttt{.sppkg}) file in the \texttt{sharepoint/solution} directory. The \texttt{--ship} flag ensures it's a release build.
+    \end{itemize}
+    \item \textbf{(Optional) Docker Image Build:
+    \begin{itemize}
+        \item If we were containerizing the SPFx application or its build environment, a \texttt{docker build} command would be here. For this project, Trivy can scan the filesystem directly, so this step might be omitted for simplicity unless a containerized build is a strict requirement.
+    \end{itemize}
+    \item \textbf{Trivy Vulnerability Scan (\texttt{Trivy@1} task or script):
+    \begin{itemize}
+        \item Scans the project's dependencies (e.g., \texttt{package-lock.json}) or the build agent's filesystem where the code resides for known vulnerabilities.
+        \item \texttt{scanType: 'fs'} indicates a filesystem scan.
+        \item \texttt{scanTarget} points to the project folder.
+        \item \texttt{severity: 'HIGH,CRITICAL'} configures Trivy to report only high and critical severity issues.
+        \item \texttt{exitCode: '1'} ensures the pipeline fails if such vulnerabilities are found.
+        \item \texttt{ignoreUnfixed: true} can be used to ignore vulnerabilities that don't yet have a fix available from vendors.
+        \item The output (\texttt{trivy-report.txt}) is saved for review.
+    \end{itemize}
+    \item \textbf{Install Playwright Browsers (\texttt{npx playwright install --with-deps}):
+    \begin{itemize}
+        \item Downloads the necessary browser binaries (Chromium, Firefox, WebKit) that Playwright will use to run end-to-end tests. \texttt{--with-deps} installs OS-level dependencies for the browsers.
+    \end{itemize}
+    \item \textbf{Run Playwright End-to-End Tests (\texttt{npm run playwright:ci}):
+    \begin{itemize}
+        \item Executes the Playwright test suite. The \texttt{playwright:ci} script in \texttt{package.json} might be configured as \texttt{playwright test --reporter=junit,line} to generate JUnit XML reports for integration with Azure DevOps test reporting and provide console output.
+        \item Tests interact with SPFx components, potentially using the local SharePoint Workbench or a live Dev SharePoint site if configured.
+        \item \texttt{continueOnError: false} ensures the pipeline fails if Playwright tests do not pass.
+    \end{itemize}
+    \item \textbf{Publish Unit Test Results (\texttt{PublishTestResults@2}):
+    \begin{itemize}
+        \item Collects unit test results (e.g., in JUnit XML format) and publishes them to Azure DevOps. This provides visibility into test outcomes, trends, and failures directly within the pipeline run summary.
+    \end{itemize}
+    \item \textbf{Publish Playwright Test Results (\texttt{PublishTestResults@2}):
+    \begin{itemize}
+        \item Similar to unit tests, this task publishes the Playwright E2E test results (also in JUnit XML format) to Azure DevOps.
+    \end{itemize}
+    \item \textbf{Prepare SPFx Package Artifact (\texttt{CopyFiles@2}):
+    \begin{itemize}
+        \item Copies the generated \texttt{.sppkg} file from the \texttt{sharepoint/solution} directory to the \texttt{\$(Build.ArtifactStagingDirectory)/sppkg}. This staging directory is then published as an artifact.
+    \end{itemize}
+    \item \textbf{Prepare PowerShell Scripts Artifact (\texttt{CopyFiles@2}):
+    \begin{itemize}
+        \item Copies custom PowerShell deployment scripts (e.g., for connecting to SharePoint, deploying the package) from the \texttt{/scripts/deployment} folder in the repository to \texttt{\$(Build.ArtifactStagingDirectory)/scripts}.
+    \end{itemize}
+    \item \textbf{Publish Build Artifacts (\texttt{PublishBuildArtifacts@1}):
+    \begin{itemize}
+        \item Publishes the contents of \texttt{\$(Build.ArtifactStagingDirectory)} (which includes the \texttt{.sppkg} file, PowerShell scripts, and potentially reports) as a single artifact named \texttt{drop}. This artifact will be consumed by the Release pipeline.
+        \item Additional \texttt{CopyFiles} and \texttt{PublishBuildArtifacts} tasks can be used to publish the Trivy scan report (\texttt{trivy-report.txt}) and the Playwright HTML report (\texttt{playwright-report/index.html} and associated files) for easier access and review.
+    \end{itemize}
+\end{enumerate}
+
+\section{Environment Variables and Secrets Management}
+\label{sec:EnvVariablesSecretsMgmt}
+
+Secure and flexible management of configuration data, especially secrets, is crucial.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Environment Variables for CI/CD Pipeline}
+    \label{tab:EnvVariablesCICD}
+    \begin{tabular}{|l|p{5cm}|l|l|p{4cm}|}
+        \hline
+        \textbf{Variable Name} & \textbf{Description} & \textbf{Scope} & \textbf{Secret} & \textbf{Source} \\
+        \hline
+        \texttt{nodeVersion} & Specifies the Node.js version for the build agent. & CI Pipeline & No & Defined in YAML or Pipeline Variables UI \\
+        \hline
+        \texttt{projectFolderName} & The root folder name of the SPFx solution in the repository. & CI Pipeline & No & Defined in YAML or Pipeline Variables UI \\
+        \hline
+        \texttt{CERTIFICATEPATH} & (Legacy/Alternative) Path to a \texttt{.pfx} certificate file if checked into the repo. & CI/CD & Yes & Azure Key Vault / Secure Files (not recommended to check in) \\
+        \hline
+        \texttt{THUMBPRINT} & Thumbprint of the certificate used for Azure AD App authentication. & CI/CD & Yes & Azure Key Vault via Variable Group \\
+        \hline
+        \texttt{CLIENTID} & Client ID (Application ID) of the Azure AD App Registration (Service Principal). & CI/CD & Yes & Azure Key Vault via Variable Group \\
+        \hline
+        \texttt{TENANT} & Tenant ID of the Azure AD where the App Registration resides. & CI/CD & Yes & Azure Key Vault via Variable Group \\
+        \hline
+        \texttt{SPPKGPATH} & Path to the \texttt{.sppkg} file within the build artifacts. & CD Pipeline & No & Dynamically determined (e.g., \texttt{\$(Pipeline.Workspace)/drop/sppkg/solution.sppkg}) \\
+        \hline
+        \texttt{SP\_ONLINE\_URL} & Base URL of the target SharePoint Online environment (e.g., \texttt{https://[tenant].sharepoint.com}). This will be environment-specific in Release stages. & CD Pipeline & No & Release Stage Variables \\
+        \hline
+        \texttt{SP\_APP\_CATALOG\_URL} & URL of the App Catalog for the target environment. & CD Pipeline & No & Release Stage Variables \\
+        \hline
+        \texttt{SP\_TARGET\_SITE\_URLS} & Comma-separated list of target site collection URLs for app deployment. & CD Pipeline & No & Release Stage Variables \\
+        \hline
+        \texttt{CERTIFICATE\_P12\_SECUREFILE\_NAME} & Name of the .p12/.pfx certificate file uploaded to Azure DevOps Secure Files. & CI/CD & Yes (file content) & Azure DevOps Secure Files \\
+        \hline
+        \texttt{CERTIFICATE\_PASSWORD\_SECRET} & Password for the .p12/.pfx certificate file. & CI/CD & Yes & Azure Key Vault via Variable Group \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\textbf{Secrets Management:}
+\begin{itemize}
+    \item \textbf{Azure Key Vault:} All sensitive values (Client ID, Tenant ID, Certificate Thumbprint, PFX password) are stored as secrets in Azure Key Vault.
+    \item \textbf{Variable Groups:} An Azure DevOps Variable Group is created and linked to the Azure Key Vault. This group is then associated with the CI and Release pipelines, securely injecting the secrets as environment variables at runtime.
+    \item \textbf{Secure Files:} The \texttt{.pfx} or \texttt{.p12} certificate file itself is uploaded to Azure DevOps Library > Secure Files. In the pipeline, a \texttt{DownloadSecureFile} task is used to make it available to the agent. The password for this file is retrieved from Azure Key Vault.
+\end{itemize}
+
+This CI pipeline design ensures an automated, repeatable, and secure process for building and preparing SPFx solutions for deployment.

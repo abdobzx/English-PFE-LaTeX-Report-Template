@@ -1,9 +1,144 @@
 \chapter{Testing and Quality Assurance}
-\label{chap:testingqa}
-% User's Section 9 Content
+\label{chapter:TestingQA}
 
-% Unit tests: Using Jest to test individual components and services.
-% Integration tests: Testing interactions between components.
-% User Acceptance Tests (UAT): Manual validation by stakeholders.
-% Performance tests: (Future scope) using tools like k6.io.
-% Security tests: SAST, DAST, dependency analysis.
+Ensuring the quality and reliability of SPFx solutions is paramount. Our CI/CD pipeline integrates multiple layers of automated testing and scanning to catch issues early in the development lifecycle.
+
+\section{Unit Tests in Node.js (\texttt{gulp test})}
+\label{sec:UnitTests}
+
+\begin{itemize}
+    \item \textbf{Purpose:} Unit tests focus on verifying the smallest, isolated pieces of code (e.g., individual functions or methods within React components, services, or utility classes) within the SPFx solution. They ensure that each unit behaves as expected.
+    \item \textbf{Frameworks:} SPFx projects typically use Jest or Mocha (often via the \texttt{karma} test runner) for unit testing, which is integrated into the default \texttt{gulpfile.js} provided by the SharePoint Framework Yeoman generator.
+    \item \textbf{Execution:}
+    \begin{itemize}
+        \item The command \texttt{gulp test} is executed in the CI pipeline after dependencies are installed.
+        \item These tests run in a Node.js environment and do not require a browser or SharePoint context (mocks are used for SharePoint-specific objects if needed).
+    \end{itemize}
+    \item \textbf{Output:} Test results are typically generated in formats like JUnit XML and console output. The JUnit XML file is then published to Azure DevOps using the \texttt{PublishTestResults@2} task, allowing for visualization of test outcomes, trends, and detailed error reporting within the pipeline results.
+    \item \textbf{Impact on Pipeline:} If any unit test fails, the \texttt{gulp test} task will exit with a non-zero code, causing the CI pipeline to fail, preventing the faulty code from proceeding further.
+\end{itemize}
+
+Example \texttt{gulpfile.js} (default SPFx setup often includes this):
+\begin{verbatim}
+// (Relevant part of gulpfile.js)
+const build = require('@microsoft/sp-build-web');
+// ...
+// Configure Jest or other test runners if not default
+// build.configureWebpack({}) // Example for webpack customization
+// ...
+build.initialize(require('gulp'));
+\end{verbatim}
+The \texttt{gulp test} command leverages configurations within \texttt{@microsoft/sp-build-web} or project-specific test setups.
+
+\section{End-to-End Tests with Playwright}
+\label{sec:E2ETestsPlaywright}
+
+\begin{itemize}
+    \item \textbf{Purpose:} End-to-end (E2E) tests simulate real user scenarios by interacting with the SPFx solution's UI in a browser. They verify the integration of different components and the overall functionality from a user's perspective.
+    \item \textbf{Framework:} We selected \textbf{Playwright} for its robustness, cross-browser capabilities (Chromium, Firefox, WebKit), and good integration with Node.js environments.
+    \item \textbf{Test Scenarios:}
+    \begin{itemize}
+        \item \textbf{Basic Loading:} Verify that web parts load correctly on a SharePoint page (local workbench or a test site page).
+        \item \textbf{Workbench Testing:} Test component behavior within the SharePoint Workbench (\texttt{/_layouts/15/workbench.aspx}).
+        \item \textbf{WebPart Interaction:}
+        \begin{itemize}
+            \item Test property pane configurations.
+            \item Verify UI element interactions (e.g., button clicks, form submissions, data display).
+            \item Test dynamic content loading and updates.
+            \item Validate interactions between multiple web parts on a page, if applicable.
+        \end{itemize}
+    \end{itemize}
+    \item \textbf{Execution:}
+    \begin{itemize}
+        \item \texttt{npx playwright install --with-deps}: Installs necessary browser binaries on the build agent.
+        \item \texttt{npm run playwright:ci} (or a similar script defined in \texttt{package.json} like \texttt{npx playwright test --reporter=junit,line}): Executes the Playwright test suite.
+        \item Tests are typically run in headless mode on the build agent to save resources and speed up execution.
+    \end{itemize}
+    \item \textbf{Configuration:}
+    \begin{itemize}
+        \item Playwright tests require a target URL. For CI, this can be the local SharePoint Workbench (if accessible and sufficient) or a dedicated Dev/QA SharePoint site configured for automated testing.
+        \item Authentication for live SharePoint sites needs to be handled, potentially by programmatically logging in using test user credentials (managed securely).
+    \end{itemize}
+    \item \textbf{Output:}
+    \begin{itemize}
+        \item Playwright generates test results, including JUnit XML files (for Azure DevOps integration), and often an HTML report for detailed visual inspection of test runs, including traces, screenshots on failure, and videos.
+        \item The JUnit XML is published using \texttt{PublishTestResults@2}.
+        \item The HTML report is published as a build artifact for manual review.
+    \end{itemize}
+    \item \textbf{Impact on Pipeline:} If any Playwright E2E test fails, the script exits with an error, failing the CI pipeline.
+\end{itemize}
+
+Example Playwright Test Snippet (Conceptual):
+\begin{verbatim}
+// tests/example.spec.ts
+import { test, expect }
+from '@playwright/test';
+
+test.beforeEach(async ({ page }) => {
+  // Navigate to the SharePoint page hosting the web part
+  // This URL and login would be configured
+  await page.goto('https://sothemalabdev.sharepoint.com/sites/TestSite/SitePages/TestPage.aspx');
+  // Handle login if necessary
+});
+
+test('should display the custom web part title', async ({ page }) => {
+  const webPartTitle = page.locator('h2.my-webpart-title-class'); // Selector for the title element
+  await expect(webPartTitle).toContainText('Welcome to Our SPFx Web Part');
+});
+
+test('should interact with a button in the web part', async ({ page }) => {
+  await page.getByRole('button', { name: 'Submit Data' }).click();
+  const successMessage = page.locator('.success-message');
+  await expect(successMessage).toBeVisible();
+});
+\end{verbatim}
+
+\section{Vulnerability Scanning with Trivy}
+\label{sec:VulnerabilityScanningTrivy}
+
+\begin{itemize}
+    \item \textbf{Purpose:} To proactively identify and report known security vulnerabilities in the application's dependencies (Node.js packages) and/or the Docker images used in the build or deployment process (if any). This is a key DevSecOps practice.
+    \item \textbf{Tool:} We utilized \textbf{Trivy}, an open-source, comprehensive vulnerability scanner.
+    \item \textbf{Execution:}
+    \begin{itemize}
+        \item The \texttt{Trivy@1} Azure DevOps task (or a script executing the Trivy CLI) is integrated into the CI pipeline.
+        \item \textbf{Filesystem Scan (\texttt{scanType: \'fs\'}):}
+        \begin{itemize}
+            \item \texttt{scanTarget: '\$(Build.SourcesDirectory)/\$(projectFolderName)'}: Trivy scans the project's file system, focusing on manifest files like \texttt{package-lock.json} or \texttt{yarn.lock} to find vulnerabilities in third-party libraries.
+        \end{itemize}
+        \item \textbf{Configuration:}
+        \begin{itemize}
+            \item \texttt{severity: \'HIGH,CRITICAL\'}: The pipeline is configured to only fail for vulnerabilities with HIGH or CRITICAL severity levels.
+            \item \texttt{exitCode: \'1\'}: If Trivy finds vulnerabilities matching the specified severity, it will exit with code 1, causing the pipeline to fail.
+            \item \texttt{ignoreUnfixed: true}: Optionally, ignore vulnerabilities that do not yet have a fix available from the package maintainers.
+            \item \texttt{--ignorefile .trivyignore}: A \texttt{.trivyignore} file can be added to the repository to specify vulnerabilities to ignore (e.g., CVEs that have been assessed and accepted as a risk, or false positives).
+        \end{itemize}
+    \end{itemize}
+    \item \textbf{Output:}
+    \begin{itemize}
+        \item Trivy generates a report listing found vulnerabilities, their severity, affected package versions, and fixed versions if available. This report is typically outputted as plain text or JSON.
+        \item The text report (\texttt{trivy-report.txt}) is published as a build artifact for review and auditing.
+    \end{itemize}
+    \item \textbf{Impact on Pipeline:} If critical or high-severity vulnerabilities (not ignored) are detected, the pipeline fails, preventing insecure code from being deployed.
+\end{itemize}
+
+\section{Test Reports and HTML Summaries}
+\label{sec:TestReportsHTMLSummaries}
+
+\begin{itemize}
+    \item \textbf{Publication:}
+    \begin{itemize}
+        \item \textbf{Azure DevOps Tests Tab:} JUnit XML reports from both unit tests and Playwright E2E tests are published to Azure DevOps. This allows stakeholders to view test results directly within the build summary, track test pass/fail rates over time, and analyze failures.
+        \begin{itemize}
+            \item \textit{Screenshot Mockup Description:} An Azure DevOps build summary page showing the "Tests" tab with a summary of passed, failed, and skipped tests. Clicking on it would show a detailed list of tests and error messages for failures.
+        \end{itemize}
+        \item \textbf{Build Artifacts:}
+        \begin{itemize}
+            \item The raw JUnit XML files are often included in the \texttt{drop} artifact.
+            \item The \textbf{Playwright HTML report} (a self-contained website with detailed E2E test execution traces, screenshots, and videos) is copied to the \texttt{\$(Build.ArtifactStagingDirectory)/playwright-html-report} and published as part of the \texttt{drop} artifact. This provides a rich, interactive way to debug E2E test failures.
+            \item The \textbf{Trivy scan report} (\texttt{trivy-report.txt}) is also published as an artifact, located in \texttt{scan-reports/}, for detailed inspection of vulnerabilities.
+        \end{itemize}
+    \end{itemize}
+\end{itemize}
+
+By integrating these diverse testing and scanning mechanisms, we significantly enhance the quality, reliability, and security of the SPFx solutions deployed at Sothema.

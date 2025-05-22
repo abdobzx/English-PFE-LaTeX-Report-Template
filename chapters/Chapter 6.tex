@@ -1,8 +1,134 @@
 \chapter{Build Artifacts}
-\label{chap:buildartifacts}
-% User's Section 7 Content
+\label{chapter:BuildArtifacts}
 
-% SPFx package (.sppkg): Primary artifact for deployment.
-% Test reports: Output from unit and integration tests.
-% Security reports: Output from SAST and dependency scans.
-% Artifact storage: Azure Artifacts.
+The CI pipeline, upon successful execution, produces a set of build artifacts. These artifacts are essential outputs that are then consumed by the Release pipeline for deployment to various SharePoint Online environments. They also serve as a record of the build, including test and scan results.
+
+\section{List of Artifacts Produced}
+\label{sec:ListOfArtifacts}
+
+The primary artifact published by our CI pipeline is named \texttt{drop}. This single \texttt{drop} artifact is a container for several key items:
+
+\begin{enumerate}
+    \item \textbf{SPFx Solution Package (\texttt{.sppkg} file):}
+    \begin{itemize}
+        \item \textbf{Description:} This is the core deployable unit for SharePoint Framework solutions. It contains the compiled code, manifests, and assets required to run the custom web parts or extensions.
+        \item \textbf{Location within \texttt{drop}:} Typically \texttt{sppkg/your-solution-name.sppkg}
+        \item \textbf{Example:} \texttt{sppkg/sothema-intranet-components.sppkg}
+    \end{itemize}
+
+    \item \textbf{PowerShell Deployment Scripts (\texttt{.ps1} files):}
+    \begin{itemize}
+        \item \textbf{Description:} A collection of PowerShell scripts designed to automate various aspects of the deployment process. These are generic scripts parameterized by the release pipeline.
+        \item \textbf{Location within \texttt{drop}:} \texttt{scripts/}
+        \item \textbf{Examples:}
+        \begin{itemize}
+            \item \texttt{Connect-SharePointOnline.ps1}: Script to establish a connection to a target SharePoint Online environment using certificate-based authentication with a service principal.
+            \item \texttt{Publish-SPFxPackageToCatalog.ps1}: Script to upload and publish/deploy the \texttt{.sppkg} file to the tenant or site collection App Catalog.
+            \item \texttt{Install-SPFxSolutionToSite.ps1}: Script to add/install the SPFx solution from the App Catalog to specific target SharePoint site collections.
+            \item \texttt{Create-SPListFromSchema.ps1}: (If applicable) A generic script to create SharePoint lists based on a provided XML schema or configuration, often used for post-deployment setup.
+            \item \texttt{Invoke-DeployToEnvironment.ps1}: A master script that orchestrates the calls to the above scripts for a specific environment (Dev, QA, PreProd, Prod), taking environment-specific variables as input.
+            \item \texttt{Disconnect-SharePointOnline.ps1}: Script to properly close the SharePoint Online connection.
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Test Reports:}
+    \begin{itemize}
+        \item \textbf{Description:} Results from automated tests, providing insights into code quality.
+        \item \textbf{Unit Test Results (e.g., JUnit XML):}
+        \begin{itemize}
+            \item Location within \texttt{drop}: \texttt{test-results/unit/} (or directly published to Azure DevOps Tests tab)
+            \item Example: \texttt{test-results/unit/junit.xml}
+        \end{itemize}
+        \item \textbf{Playwright End-to-End Test Results (e.g., JUnit XML and HTML report):}
+        \begin{itemize}
+            \item Location within \texttt{drop}: \texttt{test-results/e2e/} for XML, and \texttt{playwright-html-report/} for the HTML version.
+            \item Example: \texttt{test-results/e2e/playwright-results.xml}, \texttt{playwright-html-report/index.html}
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Vulnerability Scan Reports:}
+    \begin{itemize}
+        \item \textbf{Description:} Output from the Trivy vulnerability scanner.
+        \item \textbf{Trivy Scan Report (e.g., text or JSON format):}
+        \begin{itemize}
+            \item Location within \texttt{drop}: \texttt{scan-reports/}
+            \item Example: \texttt{scan-reports/trivy-fs-report.txt}
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{(Optional) Source Code Map Files (\texttt{.map} files):}
+    \begin{itemize}
+        \item \textbf{Description:} If generated and needed for debugging in specific non-production environments, these can be included. For production builds, they are often excluded from the \texttt{.sppkg} to reduce package size. Our setup typically excludes them from the final package but they might be available from the build logs if needed.
+    \end{itemize}
+\end{enumerate}
+
+\section{Sizes and Formats}
+\label{sec:ArtifactSizesFormats}
+
+\begin{itemize}
+    \item \textbf{\texttt{.sppkg} file:}
+    \begin{itemize}
+        \item \textbf{Format:} SharePoint Package. Essentially a ZIP archive with a specific structure and manifest files.
+        \item \textbf{Size:} Varies greatly depending on the complexity of the SPFx solution, number of components, and included assets (images, JavaScript libraries). Can range from a few hundred kilobytes to several megabytes (e.g., 500 KB - 10 MB).
+    \end{itemize}
+    \item \textbf{PowerShell Scripts (\texttt{.ps1}):}
+    \begin{itemize}
+        \item \textbf{Format:} Plain text files containing PowerShell code.
+        \item \textbf{Size:} Typically small, a few kilobytes each (e.g., 1 KB - 20 KB).
+    \end{itemize}
+    \item \textbf{Test Reports (JUnit XML):}
+    \begin{itemize}
+        \item \textbf{Format:} XML.
+        \item \textbf{Size:} Depends on the number of tests, usually kilobytes (e.g., 10 KB - 500 KB).
+    \end{itemize}
+    \item \textbf{Playwright HTML Report:}
+    \begin{itemize}
+        \item \textbf{Format:} HTML, CSS, JS files.
+        \item \textbf{Size:} Can be a few megabytes if screenshots or videos are embedded, otherwise typically a few hundred kilobytes.
+    \end{itemize}
+    \item \textbf{Trivy Scan Report (\texttt{.txt}):}
+    \begin{itemize}
+        \item \textbf{Format:} Plain text.
+        \item \textbf{Size:} Depends on the number of dependencies and vulnerabilities found, generally small to medium (e.g., 5 KB - 1 MB).
+    \end{itemize}
+\end{itemize}
+
+\section{How Artifacts Are Versioned and Stored}
+\label{sec:ArtifactVersioningStorage}
+
+\begin{itemize}
+    \item \textbf{Versioning:}
+    \begin{itemize}
+        \item \textbf{Build Number:} Each run of the CI pipeline generates a unique build number (e.g., \texttt{20250522.1}). This build number implicitly versions the set of artifacts produced during that run.
+        \item \textbf{SPFx Solution Version:} The version number inside the \texttt{package-solution.json} file of the SPFx project (e.g., \texttt{1.0.0.0}) is part of the solution manifest and is respected by SharePoint. Our CI pipeline does not automatically increment this version; version bumping is a developer-managed task, typically done before merging significant changes. The pipeline could be extended to automate versioning based on branch or tags if desired.
+        \item \textbf{Artifact Naming:} The \texttt{drop} artifact is associated with the build number. For example, \texttt{drop} from build \texttt{20250522.1}.
+    \end{itemize}
+    \item \textbf{Storage:}
+    \begin{itemize}
+        \item \textbf{Azure Artifacts (Pipeline Artifacts):} The \texttt{drop} artifact (containing all the items listed above) is published using the \texttt{PublishBuildArtifacts@1} task to Azure Pipelines' artifact storage. This storage is optimized for pipeline use.
+        \item \textbf{Retention Policies:} Azure DevOps allows configuring retention policies for builds and their artifacts (e.g., retain the last X builds, or builds for Y days, or indefinitely if marked). This helps manage storage consumption. For Sothema, critical release artifacts, especially for Production deployments, may have longer retention periods or be marked for indefinite retention.
+    \end{itemize}
+\end{itemize}
+
+This structured approach to managing build artifacts ensures that all necessary components for deployment and audit are consistently produced, versioned, and stored.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Key Build Artifacts}
+    \label{tab:KeyBuildArtifacts}
+    \begin{tabular}{|l|l|p{7cm}|}
+        \hline
+        \textbf{Artifact} & \textbf{Format/Type} & \textbf{Description} \\
+        \hline
+        SPFx Solution Package & \texttt{.sppkg} (ZIP based) & Core deployable unit containing compiled code, manifests, and assets. \\
+        \hline
+        Deployment Scripts & \texttt{.ps1} (PowerShell) & Scripts for automating connection, publishing, installation, etc. \\
+        \hline
+        Unit Test Report & JUnit XML & Results from Node.js based unit tests (e.g., Jest, Mocha). \\
+        \hline
+        E2E Test Report & JUnit XML, HTML & Results from Playwright end-to-end tests, including detailed HTML report. \\
+        \hline
+        Vulnerability Scan Report & Text (Trivy output) & List of identified security vulnerabilities in dependencies. \\
+        \hline
+    \end{tabular}
+\end{table}

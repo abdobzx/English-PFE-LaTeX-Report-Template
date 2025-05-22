@@ -1,8 +1,150 @@
 \chapter{Git Workflow and Branch Strategy}
-\label{chap:gitworkflow}
-% User's Section 5 Content
+\label{chapter:GitWorkflow}
 
-% Git repository structure: Overview of the repository layout.
-% Branching strategy: Gitflow or a similar model (e.g., main, develop, feature, release, hotfix branches).
-% Commit conventions: Guidelines for writing commit messages.
-% Pull Request (PR) process: Code review and approval workflows.
+A well-defined Git workflow and branch strategy are fundamental to managing code changes effectively, ensuring stability in production, and facilitating collaboration among developers. We implemented a strategy based on Gitflow principles, adapted for our CI/CD process within Azure Repos.
+
+\section{Azure Repos Setup}
+\label{sec:AzureReposSetup}
+
+The SPFx solution's source code is hosted in an Azure Repos Git repository. This provides version control, collaboration features, and integration with Azure Pipelines. The repository was configured with specific branch policies to protect key branches and enforce review processes.
+
+\section{Branching Strategy and Purpose}
+\label{sec:BranchingStrategy}
+
+We established five main types of branches, each serving a distinct purpose in the development and release lifecycle:
+
+\begin{itemize}
+    \item \textbf{\texttt{future/<feature-name>}} (e.g., \texttt{future/abc}, \texttt{future/user-profile-webpart}):
+    \begin{itemize}
+        \item \textbf{Purpose:} Used by developers for new feature development or bug fixes. Each new piece of work is done in a separate \texttt{future/*} branch, branched off \texttt{Dev}.
+        \item \textbf{Lifetime:} Short-lived; merged into \texttt{Dev} via a pull request once the feature is complete and reviewed.
+    \end{itemize}
+    \item \textbf{\texttt{Dev}}:
+    \begin{itemize}
+        \item \textbf{Purpose:} Integration branch for features that are ready for initial testing. This branch represents the latest development version of the solution. Builds from this branch are deployed to the Development SharePoint environment.
+        \item \textbf{Lifetime:} Long-lived.
+    \end{itemize}
+    \item \textbf{\texttt{QA}}:
+    \begin{itemize}
+        \item \textbf{Purpose:} Represents code that has passed initial development testing and is ready for formal Quality Assurance testing. Branched from \texttt{Dev} when a set of features is ready for QA. Builds from this branch are deployed to the QA SharePoint environment.
+        \item \textbf{Lifetime:} Long-lived, but periodically updated from \texttt{Dev}.
+    \end{itemize}
+    \item \textbf{\texttt{PreProd}}:
+    \begin{itemize}
+        \item \textbf{Purpose:} Used for staging releases before deploying to Production. This branch mirrors what is intended for the next production release and is used for final user acceptance testing (UAT) and soak testing. Branched from \texttt{QA} once QA testing is successful. Builds from this branch are deployed to the Pre-Production SharePoint environment.
+        \item \textbf{Lifetime:} Long-lived, but periodically updated from \texttt{QA}.
+    \end{itemize}
+    \item \textbf{\texttt{Prod} (or \texttt{main}/\texttt{master} as per convention)}:
+    \begin{itemize}
+        \item \textbf{Purpose:} Reflects the current production code. Only stable, tested, and approved code is merged into this branch. Builds from this branch are deployed to the Production SharePoint environment. Merges into \texttt{Prod} typically come from \texttt{PreProd}.
+        \item \textbf{Lifetime:} Long-lived; represents the official release history.
+    \end{itemize}
+\end{itemize}
+
+\begin{figure}[htbp]
+    \centering
+    \begin{verbatim}
+future/feature-A --+
+                   | PR (2 Rev)
+                   v
+      Dev  ----------------> QA -----------------> PreProd -----------------> Prod
+       ^ (CI Trigger)        ^ (CI Trigger,         ^ (CI Trigger,           ^ (CI Trigger,
+       |                     |  Manual Approval)    |  Manual Approval)      |  Manual Approval)
+future/feature-B --+         |                      |                        |
+                   | PR (2 Rev)                     |                        |
+                   v                                v                        v
+                 (Deploy to Dev Env)    (Deploy to QA Env)   (Deploy to PreProd Env) (Deploy to Prod Env)
+    \end{verbatim}
+    \caption{Git Branching Strategy (Conceptual)}
+    \label{fig:GitBranchingStrategy}
+\end{figure}
+
+\section{Permissions and Merge Policies}
+\label{sec:PermissionsMergePolicies}
+
+To enforce the workflow and maintain code quality, specific permissions and branch policies were configured in Azure Repos:
+
+\begin{itemize}
+    \item \textbf{\texttt{future/*} branches:}
+    \begin{itemize}
+        \item Developers have permission to create and push to \texttt{future/*} branches.
+    \end{itemize}
+    \item \textbf{\texttt{Dev} branch:}
+    \begin{itemize}
+        \item Direct pushes are disallowed.
+        \item Changes are merged into \texttt{Dev} via \textbf{Pull Requests (PRs)} from \texttt{future/*} branches.
+        \item \textbf{PR Policy:} Requires at least \textbf{two reviewers} to approve before the merge can be completed.
+        \item Associated work items must be linked.
+        \item Successful build from the PR branch is required.
+    \end{itemize}
+    \item \textbf{\texttt{QA} branch:}
+    \begin{itemize}
+        \item Direct pushes are disallowed.
+        \item Changes are merged into \texttt{QA} via PRs from \texttt{Dev}. This typically happens when a "release candidate" for QA is prepared from \texttt{Dev}.
+        \item PR Policy: May require one or two reviewers (e.g., Dev lead, QA lead).
+    \end{itemize}
+    \item \textbf{\texttt{PreProd} branch:}
+    \begin{itemize}
+        \item Direct pushes are disallowed.
+        \item Changes are merged into \texttt{PreProd} via PRs from \texttt{QA}. This happens after successful QA validation.
+        \item PR Policy: Requires approval from relevant stakeholders (e.g., QA manager, Product Owner).
+    \end{itemize}
+    \item \textbf{\texttt{Prod} branch:}
+    \begin{itemize}
+        \item Direct pushes are strictly disallowed.
+        \item Changes are merged into \texttt{Prod} via PRs from \texttt{PreProd}. This happens after successful UAT and final approvals.
+        \item PR Policy: Requires approval from senior management or a release committee.
+    \end{itemize}
+\end{itemize}
+
+\begin{table}[htbp]
+    \centering
+    \caption{Branch Purposes and Policies Summary}
+    \label{tab:BranchPoliciesSummary}
+    \begin{tabular}{|l|p{3.5cm}|l|l|l|l|}
+        \hline
+        \textbf{Branch} & \textbf{Purpose} & \textbf{Source Branch For PR} & \textbf{Target For PR From} & \textbf{Reviewers (PR)} & \textbf{Direct Push Allowed} \\
+        \hline
+        \texttt{future/*} & New development, bug fixes & \texttt{Dev} & \texttt{Dev} & 2 (to \texttt{Dev}) & Yes (by developer) \\
+        \hline
+        \texttt{Dev} & Integration, deployment to Dev Env & \texttt{future/*} & \texttt{QA} & 1-2 (to \texttt{QA}) & No \\
+        \hline
+        \texttt{QA} & Formal testing, deployment to QA Env & \texttt{Dev} & \texttt{PreProd} & 1-2 (to \texttt{PreProd}) & No \\
+        \hline
+        \texttt{PreProd} & UAT, staging, deployment to PreProd Env & \texttt{QA} & \texttt{Prod} & 2+ (to \texttt{Prod}) & No \\
+        \hline
+        \texttt{Prod} & Production releases, deployment to Prod Env & \texttt{PreProd} & - & N/A & No \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\section{Pre-Deployment Approvals}
+\label{sec:PreDeploymentApprovals}
+
+While branch policies govern code merges, the release pipeline incorporates pre-deployment approvals for stages targeting sensitive environments:
+
+\begin{itemize}
+    \item \textbf{Dev Stage:} No manual approval gate. Deployments to the Development environment are automated upon successful CI build from the \texttt{Dev} branch.
+    \item \textbf{QA Stage:} Requires \textbf{manual approval} from designated personnel (e.g., QA Lead, Project Manager) before the release pipeline deploys to the QA environment.
+    \item \textbf{PreProd Stage:} Requires \textbf{manual approval} (potentially from a wider group, including business stakeholders) before deployment to the Pre-Production environment.
+    \item \textbf{Prod Stage:} Requires \textbf{manual approval} from key stakeholders (e.g., IT Director, Business Owner) before deployment to the Production environment.
+\end{itemize}
+These approvals are configured within the Azure Release Pipeline stages.
+
+\section{Artifact Filters}
+\label{sec:ArtifactFilters}
+
+To ensure that each stage in the release pipeline deploys artifacts built from the correct branch, artifact filters are configured:
+
+\begin{itemize}
+    \item \textbf{Dev Stage:} Configured to trigger and deploy only when a new build artifact is available from a CI build originating from the \textbf{\texttt{Dev}} branch.
+    \item \textbf{QA Stage:} Configured to trigger (after manual approval) using artifacts from CI builds originating from the \textbf{\texttt{QA}} branch (or \texttt{Dev} branch if QA deployments are sourced directly from Dev integration builds, then promoted). Best practice suggests separate builds triggered by merges to the \texttt{QA} branch. For simplicity in some setups, it might pull from \texttt{Dev} artifacts if the \texttt{QA} branch itself is just a pointer, but a dedicated \texttt{QA} branch build is cleaner. Assuming dedicated builds per branch:
+    \begin{itemize}
+        \item QA Stage: Accepts builds from the \texttt{QA} branch.
+    \end{itemize}
+    \item \textbf{PreProd Stage:} Accepts builds from the \textbf{\texttt{PreProd}} branch.
+    \item \textbf{Prod Stage:} Accepts builds from the \textbf{\texttt{Prod}} branch.
+\end{itemize}
+This ensures that code flows systematically through the environments, aligning with the branch strategy. For example, an artifact built from \texttt{Dev} will not be directly deployable to \texttt{Prod}.
+
+This structured Git workflow and associated policies in Azure DevOps provide a robust framework for managing SPFx solution development and deployment, enhancing control, quality, and traceability.

@@ -1,16 +1,202 @@
 \chapter{Release Pipeline and Deployment Stages}
-\label{chap:releasepipeline}
-% User's Section 8 Content
+\label{chapter:ReleasePipeline}
 
-% Triggers: Successful completion of CI pipeline and creation of a new release.
-% Environments:
-% Development
-% Staging
-% Production
-% Deployment Stages (per environment):
-% 1. Manual approvals (for Staging and Production).
-% 2. Download build artifacts.
-% 3. Deploy SPFx package to SharePoint App Catalog.
-% 4. Run User Acceptance Tests (UAT) (for Staging).
-% 5. Run DAST scans.
-% Rollback strategies: Manual rollback to previous version.
+Once the CI pipeline successfully builds, tests, scans, and publishes the artifacts, the Release pipeline takes over to deploy the SPFx solution to the various SharePoint Online environments. We designed a multi-stage release pipeline in Azure DevOps, with each stage targeting a specific environment (Dev, QA, PreProd, Prod).
+
+\begin{figure}[htbp]
+    \centering
+    \begin{verbatim}
+[CI Build Artifact 'drop']
+        |
+        v
++-------------------+      +-----------------------+      +-------------------------+      +-----------------------+
+|   Development     |----->|  Quality Assurance    |----->|     Pre-Production      |----->|      Production       |
+|      Stage        |      |        Stage          |      |          Stage          |      |         Stage         |
+|-------------------|      |-----------------------|      |-------------------------|      |-----------------------|
+| - Trigger: Auto   |      | - Trigger: After Dev  |      | - Trigger: After QA     |      | - Trigger: After PreP |
+| - Approval: None  |      | - Approval: Manual (QA)|      | - Approval: Manual (UAT)|      | - Approval: Manual    |
+| - Target: Dev Env |      | - Target: QA Env      |      | - Target: PreProd Env   |      | - Target: Prod Env    |
+| - Scripts:        |      | - Scripts:            |      | - Scripts:              |      | - Scripts:            |
+|   Deploy-to-Dev   |      |   Deploy-to-QA        |      |   Deploy-to-PreProd     |      |   Deploy-to-Prod      |
++-------------------+      +-----------------------+      +-------------------------+      +-----------------------+
+        | (Artifact Filter: Dev Branch Build)                  (Artifact Filter: QA Branch Build)                  (Artifact Filter: PreProd Branch Build)                 (Artifact Filter: Prod Branch Build)
+    \end{verbatim}
+    \caption{Conceptual Overview of Release Stages and Approvals}
+    \label{fig:ReleaseStagesApprovals}
+\end{figure}
+
+Each stage in the release pipeline generally performs the following sequence of operations using the downloaded artifacts (especially the PowerShell scripts and the \texttt{.sppkg} file):
+\begin{enumerate}
+    \item Download artifacts from the triggering CI build.
+    \item Set environment-specific variables (SharePoint URLs, App Catalog URL, target site URLs).
+    \item Execute the main PowerShell deployment script (\texttt{Invoke-DeployToEnvironment.ps1} or stage-specific version).
+\end{enumerate}
+
+The core logic within the PowerShell deployment scripts typically involves:
+\begin{itemize}
+    \item Connecting to the target SharePoint Online tenant using certificate-based authentication (via \texttt{Connect-PnPOnline} or similar Office 365 CLI commands).
+    \item Uploading the \texttt{.sppkg} file to the environment's App Catalog (\texttt{Add-PnPApp} / \texttt{Publish-PnPApp} or \texttt{o365 spo app add/deploy}).
+    \item Installing/Upgrading the app on specified target site collections (\texttt{Install-PnPApp} or \texttt{o365 spo app install/upgrade}).
+    \item (Optional) Running post-deployment scripts, such as creating or updating SharePoint lists.
+    \item Disconnecting from SharePoint Online.
+\end{itemize}
+
+\section{Development (Dev) Stage}
+\label{sec:DevStage}
+
+\begin{itemize}
+    \item \textbf{Target SharePoint Online Site URL (Example):} \texttt{https://sothemalabdev.sharepoint.com}
+    \begin{itemize}
+        \item \textbf{App Catalog URL:} \texttt{https://sothemalabdev.sharepoint.com/sites/AppCatalog}
+        \item \textbf{Target Site(s) for App Installation:} \texttt{https://sothemalabdev.sharepoint.com/sites/DevTeamSite}, \texttt{https://sothemalabdev.sharepoint.com/sites/DevProjectX}
+    \end{itemize}
+    \item \textbf{Core PowerShell Script Snippet (\texttt{Invoke-DeployToDev.ps1} or parameterized \texttt{Invoke-DeployToEnvironment.ps1}):}
+\begin{verbatim}
+param(
+    [string]$TenantUrl,
+    [string]$AppCatalogUrl,
+    [string]$ClientId,
+    [string]$TenantId,
+    [string]$CertificateThumbprint,
+    [string]$SPPackagePath,
+    [string]$TargetSiteUrls # Comma-separated list
+)
+
+$ErrorActionPreference = "Stop"
+Import-Module PnP.PowerShell -ErrorAction SilentlyContinue
+
+try {
+    Write-Host "Connecting to SharePoint Online tenant: $TenantUrl"
+    Connect-PnPOnline -Url $TenantUrl -ClientId $ClientId -Tenant $TenantId -Thumbprint $CertificateThumbprint
+
+    Write-Host "Publishing SPFx package \'$SPPackagePath\' to App Catalog: $AppCatalogUrl"
+    $app = Add-PnPApp -Path $SPPackagePath -Publish -Overwrite -Scope Tenant
+
+    $sitesToInstall = $TargetSiteUrls -split ',' | ForEach-Object {$_.Trim()}
+    foreach ($siteUrl in $sitesToInstall) {
+        if (-not ([string]::IsNullOrWhiteSpace($siteUrl))) {
+            Write-Host "Installing/Updating app on site: $siteUrl"
+            Install-PnPApp -Identity $app.Id -Site $siteUrl
+            Write-Host "App installation/update triggered for $siteUrl."
+        }
+    }
+} catch {
+    Write-Error "Deployment failed: $($_.Exception.Message)"
+    throw $_ 
+} finally {
+    Write-Host "Disconnecting from SharePoint Online."
+    Disconnect-PnPOnline
+}
+\end{verbatim}
+    \item \textbf{Explanation:} This script connects using the provided credentials, uploads and publishes the SPFx package to the tenant App Catalog, and then iterates through target site URLs to install or update the application.
+    \item \textbf{Approval Gates and Artifact Filters:}
+    \begin{itemize}
+        \item \textbf{Approval Gate:} None. Deployment is automatic upon successful CI build from the \texttt{Dev} branch.
+        \item \textbf{Artifact Filter:} Configured to use artifacts produced by CI builds from the \texttt{Dev} branch.
+    \end{itemize}
+    \item \textbf{Rollback and Error-Handling:} See Section \ref{sec:RollbackErrorHandling}.
+\end{itemize}
+
+\section{Quality Assurance (QA) Stage}
+\label{sec:QAStage}
+
+\begin{itemize}
+    \item \textbf{Target SharePoint Online Site URL (Example):} \texttt{https://sothemalabqa.sharepoint.com}
+    \begin{itemize}
+        \item \textbf{App Catalog URL:} \texttt{https://sothemalabqa.sharepoint.com/sites/AppCatalog}
+        \item \textbf{Target Site(s):} \texttt{https://sothemalabqa.sharepoint.com/sites/QATesting}, \texttt{https://sothemalabqa.sharepoint.com/sites/UserAcceptance}
+    \end{itemize}
+    \item \textbf{Core PowerShell Script:} The same \texttt{Invoke-DeployToEnvironment.ps1} script is used, but parameterized with QA environment-specific URLs and credentials/variables.
+    \item \textbf{Approval Gates and Artifact Filters:}
+    \begin{itemize}
+        \item \textbf{Approval Gate:} \textbf{Manual approval required} (e.g., by QA Lead).
+        \item \textbf{Artifact Filter:} Configured to use artifacts from CI builds originating from the \texttt{QA} branch (or promoted \texttt{Dev} branch artifacts if the workflow dictates).
+    \end{itemize}
+    \item \textbf{Rollback and Error-Handling:} See Section \ref{sec:RollbackErrorHandling}.
+\end{itemize}
+
+\section{Pre-Production (PreProd) Stage}
+\label{sec:PreProdStage}
+
+\begin{itemize}
+    \item \textbf{Target SharePoint Online Site URL (Example):} \texttt{https://sothemalabpreprod.sharepoint.com}
+    \begin{itemize}
+        \item \textbf{App Catalog URL:} \texttt{https://sothemalabpreprod.sharepoint.com/sites/AppCatalog}
+        \item \textbf{Target Site(s):} \texttt{https://sothemalabpreprod.sharepoint.com/sites/Staging}, \texttt{https://sothemalabpreprod.sharepoint.com/sites/FinalUAT}
+    \end{itemize}
+    \item \textbf{Core PowerShell Script:} \texttt{Invoke-DeployToEnvironment.ps1} parameterized for PreProd.
+    \item \textbf{Approval Gates and Artifact Filters:}
+    \begin{itemize}
+        \item \textbf{Approval Gate:} \textbf{Manual approval required} (e.g., by Product Owner, IT Manager).
+        \item \textbf{Artifact Filter:} Configured to use artifacts from CI builds originating from the \texttt{PreProd} branch.
+    \end{itemize}
+    \item \textbf{Rollback and Error-Handling:} See Section \ref{sec:RollbackErrorHandling}.
+\end{itemize}
+
+\section{Production (Prod) Stage}
+\label{sec:ProdStage}
+
+\begin{itemize}
+    \item \textbf{Target SharePoint Online Site URL (Example):} \texttt{https://sothema.sharepoint.com} (actual corporate tenant)
+    \begin{itemize}
+        \item \textbf{App Catalog URL:} \texttt{https://sothema.sharepoint.com/sites/AppCatalog}
+        \item \textbf{Target Site(s):} Specific production sites where the SPFx solution is needed (e.g., \texttt{https://sothema.sharepoint.com/sites/Intranet}, \texttt{https://sothema.sharepoint.com/sites/HRPortal}).
+    \end{itemize}
+    \item \textbf{Core PowerShell Script:} \texttt{Invoke-DeployToEnvironment.ps1} parameterized for Prod.
+    \item \textbf{Approval Gates and Artifact Filters:}
+    \begin{itemize}
+        \item \textbf{Approval Gate:} \textbf{Manual approval required} (e.g., by Head of IT, Business Unit Director).
+        \item \textbf{Artifact Filter:} Configured to use artifacts from CI builds originating from the \texttt{Prod} branch.
+    \end{itemize}
+    \item \textbf{Rollback and Error-Handling:} See Section \ref{sec:RollbackErrorHandling}.
+\end{itemize}
+
+\begin{table}[htbp]
+    \centering
+    \caption{Deployment Stage Configuration Summary}
+    \label{tab:DeploymentStageConfigSummary}
+    \begin{tabular}{|l|p{3.5cm}|p{3.5cm}|p{3.5cm}|p{3.5cm}|}
+        \hline
+        \textbf{Feature} & \textbf{Development (Dev)} & \textbf{Quality Assurance (QA)} & \textbf{Pre-Production (PreProd)} & \textbf{Production (Prod)} \\
+        \hline
+        Target URL Base & \texttt{https://sothemalabdev.sharepoint.com} & \texttt{https://sothemalabqa.sharepoint.com} & \texttt{https://sothemalabpreprod.sharepoint.com} & \texttt{https://sothema.sharepoint.com} \\
+        \hline
+        Trigger & Auto after CI (\texttt{Dev} branch) & Manual after Dev Stage (or auto after CI \texttt{QA} branch) & Manual after QA Stage (or auto after CI \texttt{PreProd} branch) & Manual after PreProd Stage (or auto after CI \texttt{Prod} branch) \\
+        \hline
+        Approval & None & Manual (e.g., QA Lead) & Manual (e.g., Product Owner) & Manual (e.g., IT Director) \\
+        \hline
+        Artifact Source & \texttt{Dev} branch build & \texttt{QA} branch build (or promoted \texttt{Dev} build) & \texttt{PreProd} branch build & \texttt{Prod} branch build \\
+        \hline
+        Deployment Script & \texttt{Invoke-DeployToEnvironment.ps1} (Dev params) & \texttt{Invoke-DeployToEnvironment.ps1} (QA params) & \texttt{Invoke-DeployToEnvironment.ps1} (PreProd params) & \texttt{Invoke-DeployToEnvironment.ps1} (Prod params) \\
+        \hline
+        Primary Purpose & Developer testing, initial integration & Formal testing, bug fixing verification & UAT, staging, soak testing & Live operational use \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\section{Rollback and Error-Handling Strategies}
+\label{sec:RollbackErrorHandling}
+
+\begin{itemize}
+    \item \textbf{Error-Handling in Scripts:}
+    \begin{itemize}
+        \item The PowerShell deployment scripts incorporate \texttt{try...catch} blocks to handle errors during execution.
+        \item \texttt{\$ErrorActionPreference = "Stop"} is set to ensure that any script error halts the script and bubbles up to Azure DevOps, failing the deployment task.
+        \item Detailed error messages are logged to help diagnose issues.
+    \end{itemize}
+    \item \textbf{Rollback Strategy:}
+    \begin{itemize}
+        \item \textbf{Automated Rollback (Limited):} True automated rollback (uninstalling the current version and reinstalling the exact previous one) for SPFx solutions can be complex, especially if schema changes or data modifications occurred. Our current pipeline primarily supports a "roll forward" or "re-deploy previous version" approach.
+        \item \textbf{Re-deploy Previous Version:} Azure DevOps Release pipelines maintain a history of releases. If a deployment to an environment (e.g., Prod) fails or causes issues, the most straightforward rollback mechanism is to re-deploy the last known good release for that stage. This involves selecting a previous successful release (with its associated artifacts) and re-initiating its deployment to the target stage.
+        \item \textbf{Manual Rollback Steps (if necessary):}
+        \begin{enumerate}
+            \item \textbf{Retract Solution:} Manually or via script, retract the problematic SPFx solution from the App Catalog (\texttt{Remove-PnPApp} or \texttt{o365 spo app retract} followed by \texttt{Remove-PnPApp} or \texttt{o365 spo app remove}).
+            \item \textbf{Remove from Sites:} Uninstall the app from all target site collections (\texttt{Uninstall-PnPApp} or \texttt{o365 spo app uninstall}).
+            \item \textbf{Deploy Previous Version:} Trigger a new release in Azure DevOps, selecting the artifact version that corresponds to the last stable state.
+        \end{enumerate}
+        \item \textbf{Database/List Content:} If the SPFx solution interacts with SharePoint lists and modifies data, data rollback is a separate, more complex consideration, typically requiring data backup and restore strategies outside the scope of this pipeline. Our solution focuses on application code rollback.
+    \end{itemize}
+    \item \textbf{Deployment Monitoring:} Azure DevOps provides real-time logging for each step in the release pipeline. Sothema's IT team can monitor these logs to identify and troubleshoot issues promptly. Notifications are configured to alert relevant personnel of deployment failures.
+\end{itemize}
+
+This structured release pipeline ensures that SPFx solutions are deployed in a controlled, auditable, and systematic manner across all environments, with appropriate safeguards and approval processes.

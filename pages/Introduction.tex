@@ -2,10 +2,45 @@
 \addcontentsline{toc}{chapter}{Introduction}
 \label{introduction}
 
-    % User's Section 2 Content
-    
-    % Brief overview of the project: Design and implementation of a secure CI/CD pipeline for SharePoint Framework (SPFx) solutions at Sothema.
-    % Problem statement: Manual, error-prone, and time-consuming deployment process for SPFx solutions, lacking security and quality checks.
-    % Objectives: Automate the build, test, and deployment process; integrate security best practices; improve code quality and deployment frequency.
-    % Scope: SPFx solutions, Azure DevOps, SharePoint Online.
-    % Report structure: Overview of the report sections.
+\section{Context: Société Thérapeutique Marocaine (Sothema)}
+\label{sec:intro_context}
+
+Société Thérapeutique Marocaine (Sothema) is a prominent pharmaceutical group in Morocco and Africa. Founded in 1976, Sothema has established itself as a leader in the manufacturing and commercialization of a wide range of pharmaceutical products, including ethical drugs, generics, and biotechnology-derived products. With its headquarters in the region of Casablanca, Sothema operates state-of-the-art manufacturing facilities and adheres to international quality standards. The company is committed to innovation, research, and development, playing a crucial role in public health across the territories it serves. Sothema's organization encompasses various departments, including Research \& Development, Manufacturing, Quality Assurance, Sales \& Marketing, and a growing IT department focused on supporting and innovating business processes through technology.
+
+\section{Motivation for the Project}
+\label{sec:intro_motivation}
+
+In the contemporary digital landscape, the velocity and reliability of software delivery are paramount for maintaining a competitive edge and operational excellence. For organizations like Sothema, leveraging platforms such as Microsoft SharePoint Online for collaboration and business process automation is critical. The development and deployment of custom SharePoint Framework (SPFx) solutions extend SharePoint's capabilities, tailoring it to specific business needs.
+
+However, traditional manual deployment processes for SPFx solutions are often time-consuming, prone to human error, and lack integrated security checks. This can lead to deployment inconsistencies, security vulnerabilities, and slower delivery of value to end-users. The adoption of DevSecOps practices, which emphasize automation, collaboration, and security throughout the software development lifecycle, offers a robust solution to these challenges.
+
+The motivation for this project was to embed DevSecOps principles into Sothema's SPFx development lifecycle. By implementing an automated CI/CD pipeline, we aimed to:
+\begin{itemize}
+    \item \textbf{Accelerate Delivery:} Reduce the time from code commit to deployment.
+    \item \textbf{Improve Reliability:} Ensure consistent and repeatable deployments.
+    \item \textbf{Enhance Security:} Integrate automated security scanning to identify and mitigate vulnerabilities early.
+    \item \textbf{Increase Efficiency:} Free up developer and IT operations time from manual deployment tasks.
+    \item \textbf{Foster Collaboration:} Provide a standardized and transparent process for all stakeholders.
+\end{itemize}
+
+This project directly supports Sothema's IT strategy by modernizing its application deployment capabilities and strengthening its overall security posture.
+
+\section{Scope and Objectives}
+\label{sec:intro_scope_objectives}
+
+The \textbf{scope} of this end-of-studies project was centered on the SharePoint Framework (SPFx) solutions developed for Sothema's SharePoint Online environment. Our mission was to design, implement, and secure a fully automated Continuous Integration and Continuous Deployment (CI/CD) pipeline to deploy these SPFx solutions (.sppkg files) into the corporate App Catalog.
+
+The specific \textbf{objectives} were:
+\begin{enumerate}
+    \item \textbf{Design a CI/CD Pipeline Architecture:} Define a robust and scalable pipeline architecture using Azure DevOps services, incorporating best practices for SPFx development and deployment.
+    \item \textbf{Implement Git-Based Version Control:} Establish a structured Git workflow within Azure Repos, including branch strategies, pull request policies, and access controls.
+    \item \textbf{Automate the Build Process:} Create a CI pipeline that automatically compiles, bundles, and packages SPFx solutions upon code commits.
+    \item \textbf{Integrate Automated Testing:} Incorporate unit tests and end-to-end tests (using Playwright) within the CI pipeline to ensure solution quality.
+    \item \textbf{Integrate Security Scanning:} Embed automated vulnerability scanning (using Trivy) for Docker images and application dependencies.
+    \item \textbf{Automate Deployment:} Develop a release pipeline to deploy the packaged SPFx solution to different SharePoint Online environments (Development, QA, Pre-Production, Production), including publishing to the App Catalog and deploying to target sites.
+    \item \textbf{Implement Environment Management:} Ensure the pipeline can handle environment-specific configurations and approvals.
+    \item \textbf{Secure the Pipeline:} Implement security measures such as credential management, service principals, and adherence to the principle of least privilege.
+    \item \textbf{Document the Solution:} Provide comprehensive documentation for the implemented pipeline, including setup, configuration, and operational procedures.
+\end{enumerate}
+
+This project focused on the technical implementation of the pipeline, assuming the SPFx solutions themselves were developed separately.

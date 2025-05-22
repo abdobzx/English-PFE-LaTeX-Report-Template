@@ -1,11 +1,42 @@
 \chapter{Company Presentation}
-\label{chap:companypres}
+\label{chapter:CompanyPresentation}
 
-\section*{Introduction}
-    This chapter outlines the company where the internship was conducted, providing an overview of its history, mission, vision, values, and market position. 
+\section{Company Profile}
+\label{sec:CompanyProfile}
 
-\section*{Department/Team}
-    This section describes the department or team where the internship took place, including the key personnel involved in the project such as the supervisor and team members.
+\begin{itemize}
+    \item \textbf{Name:} Société Thérapeutique Marocaine (Sothema)
+    \item \textbf{Founding Date:} 1976
+    \item \textbf{Headquarters:} Bouskoura, Casablanca, Morocco (This is a common location for pharmaceutical companies near Casablanca; actual Sothema HQ location should be verified).
+    \item \textbf{Core Business Lines:} Sothema is primarily engaged in the development, manufacturing, marketing, and distribution of pharmaceutical products. This includes originator drugs, generic medications, and increasingly, biopharmaceuticals. They serve both domestic and international markets, contributing significantly to the healthcare sector in Morocco and Africa.
+    \item \textbf{IT Organization:} Sothema's IT department is responsible for managing the company's technological infrastructure, enterprise applications, cybersecurity, and digital innovation initiatives. The department is typically structured to support various business functions, including ERP systems, laboratory information management systems (LIMS), CRM, and collaboration platforms like Microsoft 365, which includes SharePoint Online. The team likely comprises infrastructure specialists, application developers, support engineers, and IT management.
+\end{itemize}
 
-\section*{Conclusion}
-    In this chapter, we ....
+\section{IT Strategy and DevOps Maturity}
+\label{sec:ITStrategyDevOpsMaturity}
+
+Sothema's IT strategy is increasingly focused on leveraging technology to enhance operational efficiency, ensure regulatory compliance, foster innovation in R\&D, and improve engagement with healthcare professionals and patients. Key pillars of this strategy likely include:
+\begin{itemize}
+    \item \textbf{Digital Transformation:} Modernizing core business processes through digitalization.
+    \item \textbf{Data-Driven Decision Making:} Utilizing analytics and business intelligence.
+    \item \textbf{Cybersecurity:} Protecting sensitive company and patient data.
+    \item \textbf{Cloud Adoption:} Strategically moving workloads to cloud platforms like Microsoft Azure and Microsoft 365 for scalability, reliability, and accessibility.
+\end{itemize}
+
+Regarding \textbf{DevOps maturity}, prior to this project, Sothema's IT department may have had some elements of agile practices and automation in place, particularly for traditional server-based applications. However, for newer cloud-native development, such as SPFx solutions, the processes might have been less mature, potentially involving:
+\begin{itemize}
+    \item Manual or semi-automated build processes.
+    \item Manual deployment of SPFx packages to the App Catalog.
+    \item Limited automated testing specific to SharePoint customizations.
+    \item Security checks performed ad-hoc rather than integrated into the development lifecycle.
+\end{itemize}
+
+This CI/CD pipeline project fits into Sothema's IT strategy by:
+\begin{itemize}
+    \item \textbf{Advancing Cloud Adoption:} Directly supporting the efficient management of SharePoint Online customizations, a key Microsoft 365 service.
+    \item \textbf{Enhancing Cybersecurity:} Integrating security scanning directly into the deployment process (DevSecOps).
+    \item \textbf{Improving Agility:} Enabling faster and more reliable delivery of SPFx solutions, allowing the IT department to be more responsive to business needs.
+    \item \textbf{Building DevOps Capabilities:} Introducing and standardizing modern DevOps practices within the team, providing a template for other development projects.
+\end{itemize}
+
+This project represents a significant step forward in Sothema's DevOps journey, particularly for its SharePoint development stream, moving towards a more automated, secure, and efficient software delivery model.

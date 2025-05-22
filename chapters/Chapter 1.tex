@@ -1,115 +1,27 @@
 \chapter{Executive Summary}
 \label{chap:execsummary}
-% User's Section 1 Content
 
-% Brief summary of the entire project, including the problem, objectives, methodology, key findings, and recommendations.
-% Highlight the benefits of the implemented CI/CD pipeline (e.g., improved efficiency, security, and code quality).
+This report encapsulates the work accomplished during a four-month end-of-studies internship at Société Thérapeutique Marocaine (Sothema), focusing on the enhancement of their software deployment practices within the IT department. The core **objective** of this project was to design, implement, and secure a comprehensive Continuous Integration and Continuous Deployment (CI/CD) pipeline for SharePoint Framework (SPFx) solutions, targeting the corporate SharePoint Online App Catalog.
 
-\chapter{Chapter 1}
-\minitoc
-\label{chap:1st}
-\section*{Introduction}
-    This chapter delves into ....
+The **motivation** for this initiative stemmed from the need to streamline the development lifecycle, reduce manual deployment errors, improve security through integrated scanning, and accelerate the delivery of business value, aligning with modern DevSecOps principles. Sothema, a leading pharmaceutical group, recognized the increasing importance of agile and secure software delivery to support its operational efficiency and digital transformation goals.
 
-\section{Template}
-    \subsection{References}
-        This is how you reference the webography \cite{web:melek} and bibliography \cite{ref:example}.
-        
-    \subsection{Equations}
-        This is an example equation: \ref{equ:example}.
+Our **methodology** involved several key phases:
+\begin{itemize}
+    \item \textbf{Requirements Gathering:} We identified functional and non-functional requirements for deploying SPFx solutions, including versioning, automated testing, security scanning, and environment-specific configurations.
+    \item \textbf{Design:} We architected a pipeline using Azure DevOps, leveraging Azure Repos for Git-based version control with a defined branch strategy (Dev, QA, PreProd, Prod, future/abc). The architecture incorporated Docker for build agent consistency, Trivy for container and application vulnerability scanning, Playwright for end-to-end testing, and PowerShell for deployment automation to SharePoint Online.
+    \item \textbf{Implementation:} We developed YAML-based CI pipelines in Azure Pipelines to automate the build, test, scan, and packaging of SPFx solutions. Release pipelines were configured with distinct stages for Development, QA, Pre-Production, and Production environments, each with appropriate approval gates and artifact filters. Secure handling of credentials using Azure Key Vault and service principals was implemented.
+    \item \textbf{Testing and Validation:} The pipeline's efficacy was validated through rigorous testing, including unit tests, Playwright end-to-end tests, and vulnerability scans.
+\end{itemize}
 
-       \begin{equation}
-            \text{Accuracy} = \frac{\text{TP} + \text{TN}}{\text{TP} + \text{TN} + \text{FP} + \text{FN}}
-            \label{equ:example}
-        \end{equation}
+The **major results** of this project include:
+\begin{itemize}
+    \item A fully automated CI/CD pipeline capable of deploying SPFx solutions from code commit to the SharePoint App Catalog across multiple environments.
+    \item Integration of automated security scanning (Trivy) and quality assurance (Playwright tests) directly into the pipeline.
+    \item Standardized Git workflow with branch policies and pull request reviews, enhancing code quality and collaboration.
+    \item Significant reduction in manual intervention for deployments, leading to faster feedback loops and reduced risk of human error. For instance, an average build and test cycle was completed in approximately 8 minutes and 43 seconds.
+    \item Improved security posture through automated vulnerability detection and enforced separation of duties via approval gates.
+\end{itemize}
 
+\textbf{Recommendations} for future work include expanding the pipeline to support mobile SPFx solutions, integrating more extensive automated integration tests directly on SharePoint Online, exploring migration to GitHub Actions for broader community support and feature sets, implementing more sophisticated secret rotation policies, and increasing the frequency of automated security scans.
 
-        
-
-        
-    \subsection{Figures}
-        This is an example of a single image figure \ref{img:single}.
-
-        \begin{figure}[htbp]
-        \centerline{\includegraphics[width=0.9\textwidth]{images/example.png}}
-        \caption{Single image}
-        \label{img:single}   
-        \end{figure}
-
-        This is an example of a multiple image figure \ref{img:multiple}
-        
-        \begin{figure}[htbp]
-        \begin{subfigure}[t]{0.5\linewidth}
-        \centering
-        \includegraphics[width=0.7\textwidth]{images/example.png}
-        \caption{Image 1}
-        \label{subfig:img1}
-        \end{subfigure}%
-        \begin{subfigure}[t]{0.5\linewidth}
-        \centering
-        \includegraphics[width=0.7\textwidth]{images/example.png}
-        \caption{Image 2}
-        \label{subfig:img2}
-        \end{subfigure}
-        \caption{Multiple images}
-        \label{img:multiple}
-        \end{figure}
-        
-        
-    \subsection{Tables}
-        This is an example of a simple table \ref{tab:simple}
-
-        \begin{table}[H]
-        \centering
-        \scalebox{1}{
-        \begin{tabular}{|l|c|c|}
-        \hline
-        \textbf{x} & \textbf{y} & \textbf{z} \\
-        \hline
-        \textbf{a} & 5 & \cellcolor{green!10}7  \\
-        \hline
-        \textbf{b} & 63 & \cellcolor{green!10}8  \\
-        \hline
-        \end{tabular}
-        }
-        \caption{Simple table}
-        \label{tab:simple}
-        \end{table}
-
-        This is an example of a complex table \ref{tab:complex}
-        
-        \begin{table}[htbp]
-        \begin{center}
-        
-        \begin{tabular}{|c|l|c|c|c|}
-        \cline{3-5}
-        \multicolumn{2}{c|}{}&\multicolumn{3}{|c|}{\textbf{metric(\%)$\uparrow$}}\\
-        \cline{2-5}
-        \multicolumn{1}{c|}{}&\textbf{a} & train & valid & test  \\
-        \hline
-        
-        \parbox[t]{2mm}{\multirow{2}{*}{\rotatebox[origin=c]{90}{\textbf{bc}}}}
-        & b      &   5   &   5  &   5  \\
-        & c      &   5   &   5  &   5  \\
-        \hline
-        \hline
-        
-        \parbox[t]{2mm}{\multirow{2}{*}{\rotatebox[origin=c]{90}{\textbf{de}}}} 
-        & d      &   5  &   5   &   5  \\
-        & e            &   5   &   5   &   5  \\
-        \hline
-        \hline   
-
-        \rowcolor{gray!10}&\textbf{f} &   \textbf{10}   &   \textbf{10}   &   \textbf{10} \\
-        \hline
-        
-        \end{tabular}
-        \caption{Complex table}
-        \label{tab:complex}
-        \end{center}
-        \end{table}
-
-
-        
-\section*{Conclusion}
-    We presented ....
+This project successfully demonstrated the value of automating SPFx deployments at Sothema, providing a robust foundation for future DevSecOps initiatives and contributing to the company's ongoing digital evolution.

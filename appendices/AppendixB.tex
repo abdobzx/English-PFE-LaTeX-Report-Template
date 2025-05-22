@@ -1,3 +1,180 @@
 % User's Section 14.2 Content
 
 % Core PowerShell Deployment Scripts
+
+\chapter{Core PowerShell Deployment Scripts}
+\label{appendix:PowerShellScripts}
+
+These are simplified examples. Real scripts would have more robust error handling, logging, and parameterization.
+
+\section{Connect-SharePointOnline.ps1 (Conceptual)}
+\begin{verbatim}
+# This logic is usually embedded within the main deployment script.
+# It assumes variables like $ClientId, $TenantId, $CertificateThumbprint, $TenantUrl are available.
+# Example snippet:
+# Write-Host "Attempting to connect to SharePoint Online: $TenantUrl"
+# try {
+#   Connect-PnPOnline -Url $TenantUrl -ClientId $ClientId -Tenant $TenantId -Thumbprint $CertificateThumbprint -WarningAction SilentlyContinue
+#   Write-Host "Successfully connected to $TenantUrl"
+# } catch {
+#   Write-Error "Failed to connect to SharePoint: $($_.Exception.Message)"
+#   throw # Re-throw to fail the pipeline task
+# }
+\end{verbatim}
+
+\section{Publish-SPFxPackageToCatalog.ps1 (Conceptual)}
+\begin{verbatim}
+# This logic is usually embedded within the main deployment script.
+# Assumes $SPPackagePath and $AppCatalogUrl (if site collection app catalog) or tenant context.
+# Example snippet:
+# Write-Host "Uploading and publishing SPFx package: $SPPackagePath"
+# try {
+#   # For Tenant App Catalog
+#   $app = Add-PnPApp -Path $SPPackagePath -Publish -Overwrite -Scope Tenant
+#   Write-Host "SPFx package '$($app.Title)' published to Tenant App Catalog. ID: $($app.Id)"
+#
+#   # If using Site Collection App Catalog, the command is slightly different:
+#   # Connect-PnPOnline -Url $AppCatalogUrl ... (connect to the site collection app catalog site itself)
+#   # $app = Add-PnPApp -Path $SPPackagePath -Publish -Overwrite -Scope SiteCollection
+#   # Write-Host "SPFx package published to Site Collection App Catalog: $AppCatalogUrl"
+# } catch {
+#   Write-Error "Failed to publish SPFx package: $($_.Exception.Message)"
+#   throw
+# }
+# Return $app.Id or necessary app identifiers
+\end{verbatim}
+
+\section{Install-SPFxSolutionToSite.ps1 (Conceptual)}
+\begin{verbatim}
+# This logic is usually embedded within the main deployment script.
+# Assumes $app (from publishing step) and $TargetSiteUrl.
+# Example snippet:
+# Write-Host "Installing/Updating app '$($app.Title)' on site: $TargetSiteUrl"
+# try {
+#   Install-PnPApp -Identity $app.Id -Site $TargetSiteUrl
+#   Write-Host "App installation/update successfully initiated for '$($app.Title)' on $TargetSiteUrl."
+# } catch {
+#   Write-Error "Failed to install/update app on $TargetSiteUrl: $($_.Exception.Message)"
+#   # Consider if this should be a throwing error or just a warning depending on requirements
+#   throw
+# }
+\end{verbatim}
+
+\section{Invoke-DeployToEnvironment.ps1 (Master Orchestration Script Example)}
+\begin{verbatim}
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory=$true)]
+    [string]$TenantUrl, # e.g., https://sothemadev.sharepoint.com
+
+    [Parameter(Mandatory=$true)]
+    [string]$AppCatalogScope, # 'Tenant' or 'SiteCollection'
+
+    [Parameter(Mandatory=$false)] # Mandatory if AppCatalogScope is 'SiteCollection'
+    [string]$AppCatalogUrl, # e.g., https://sothemadev.sharepoint.com/sites/AppCatalog
+
+    [Parameter(Mandatory=$true)]
+    [string]$ClientId,
+
+    [Parameter(Mandatory=$true)]
+    [string]$TenantId,
+
+    [Parameter(Mandatory=$true)]
+    [string]$CertificateThumbprint, # For PnP PowerShell with cert thumbprint
+
+    [Parameter(Mandatory=$false)]
+    [string]$CertificatePfxPath, # Alternative: Path to PFX file
+    [Parameter(Mandatory=$false)]
+    [string]$CertificatePfxPassword, # Alternative: Password for PFX file
+
+    [Parameter(Mandatory=$true)]
+    [string]$SPPackagePath, # Path to the .sppkg file
+
+    [Parameter(Mandatory=$false)]
+    [string]$TargetSiteUrlsCsv, # Comma-separated list of site URLs to install the app
+
+    [Parameter(Mandatory=$false)]
+    [switch]$SkipFeatureDeployment # For Add-PnPApp / Deploy-PnPApp
+)
+
+$ErrorActionPreference = "Stop"
+
+try {
+    Import-Module PnP.PowerShell -ErrorAction SilentlyContinue
+    Write-Host "PnP PowerShell module imported/available."
+
+    # Connection Parameters
+    $connectParams = @{
+        Url = $TenantUrl
+        ClientId = $ClientId
+        TenantId = $TenantId
+    }
+    if (-not [string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
+        $connectParams.Thumbprint = $CertificateThumbprint
+        Write-Host "Connecting to SharePoint Online: $TenantUrl using Cert Thumbprint."
+    } elseif ((-not [string]::IsNullOrWhiteSpace($CertificatePfxPath)) -and (-not [string]::IsNullOrWhiteSpace($CertificatePfxPassword))) {
+        $connectParams.CertificatePath = $CertificatePfxPath
+        $connectParams.CertificatePassword = $CertificatePfxPassword
+        Write-Host "Connecting to SharePoint Online: $TenantUrl using Cert Path."
+    } else {
+        throw "Either Certificate Thumbprint or Certificate Path/Password must be provided."
+    }
+
+    Connect-PnPOnline @connectParams
+    Write-Host "Successfully connected to $TenantUrl."
+
+    # Publish to App Catalog
+    Write-Host "Publishing SPFx package '$SPPackagePath' with scope '$AppCatalogScope'."
+    $addAppParams = @{
+        Path = $SPPackagePath
+        Publish = $true
+        Overwrite = $true
+        Scope = $AppCatalogScope # 'Tenant' or 'SiteCollection'
+    }
+    if ($AppCatalogScope -eq 'SiteCollection') {
+        if ([string]::IsNullOrWhiteSpace($AppCatalogUrl)) {
+            throw "AppCatalogUrl is required for SiteCollection scope."
+        }
+        Write-Host "Targeting Site Collection App Catalog at (implicitly or explicitly connected): $AppCatalogUrl"
+    }
+
+    $app = Add-PnPApp @addAppParams
+    Write-Host "SPFx package '$($app.Title)' (ID: $($app.Id)) uploaded to App Catalog."
+
+    if ($AppCatalogScope -eq 'Tenant') {
+        Write-Host "Ensuring app '$($app.Title)' is deployed in Tenant App Catalog."
+        Deploy-PnPApp -Identity $app.Id -SkipFeatureDeployment:$SkipFeatureDeployment.IsPresent
+        Write-Host "App '$($app.Title)' deployment status checked/triggered in Tenant App Catalog."
+    }
+
+    # Install on Target Sites
+    if (-not [string]::IsNullOrWhiteSpace($TargetSiteUrlsCsv)) {
+        $siteUrls = $TargetSiteUrlsCsv -split ',' | ForEach-Object {$_.Trim()}
+        Write-Host "Found $($siteUrls.Count) target site(s) for app installation."
+
+        foreach ($siteUrl in $siteUrls) {
+            if (-not ([string]::IsNullOrWhiteSpace($siteUrl))) {
+                Write-Host "Installing/Updating app '$($app.Title)' on site: $siteUrl"
+                try {
+                    Install-PnPApp -Identity $app.Id -Site $siteUrl
+                    Write-Host "App installation/update successfully initiated for '$($app.Title)' on $siteUrl."
+                } catch {
+                    Write-Warning "Failed to install/update app on $siteUrl: $($_.Exception.Message). Continuing with other sites."
+                }
+            }
+        }
+    } else {
+        Write-Host "No specific target sites provided for installation. App is available in App Catalog."
+    }
+
+    Write-Host "Deployment script completed successfully."
+
+} catch {
+    Write-Error "Deployment script failed: $($_.Exception.ToString())"
+    throw $_ 
+} finally {
+    Write-Host "Disconnecting from SharePoint Online."
+    Disconnect-PnPOnline -ErrorAction SilentlyContinue
+}
+\end{verbatim}
+\textbf{Note:} This master script requires the PnP.PowerShell module to be installed on the agent. The Azure DevOps pipeline can include a step to install it if it's not pre-baked into the agent image: \texttt{Install-Module PnP.PowerShell -Force -SkipPublisherCheck -Scope CurrentUser}.
