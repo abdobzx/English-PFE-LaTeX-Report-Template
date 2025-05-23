@@ -58,17 +58,7 @@ The CI/CD pipeline was designed using Azure DevOps as the central orchestration 
 
 \begin{figure}[htbp]
     \centering
-    % The verbatim block previously here is replaced with a descriptive paragraph.
-    % For a visual representation, consider creating a diagram using a dedicated tool
-    % and including it as an image (e.g., using the graphicx package and \\includegraphics).
-    \parbox{0.8\textwidth}{
-        \centering
-        \textit{Figure \ref{fig:HighLevelArchitecture} conceptually illustrates the CI/CD pipeline architecture.
-        Azure Repos hosts the source code. Azure Pipelines (CI) automates build, test (unit, E2E with Playwright), and vulnerability scanning (Trivy), producing artifacts.
-        These artifacts are then deployed by Azure Pipelines (Release) through multiple stages (Dev, QA, PreProd, Prod) to SharePoint Online environments.
-        Deployment tasks utilize PowerShell scripts for SharePoint interactions, authenticated via a Service Principal.
-        Each SharePoint environment (Dev, QA, PreProd, Prod) includes an App Catalog and target site(s).}
-    }
+    \includegraphics[width=0.9\textwidth]{images/CI-CD.png} % Updated to include the specified image
     \caption{High-Level CI/CD Pipeline Architecture}
     \label{fig:HighLevelArchitecture}
 \end{figure}
