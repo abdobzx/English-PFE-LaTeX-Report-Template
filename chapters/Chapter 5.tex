@@ -18,7 +18,8 @@ The YAML file typically includes the following main sections:
 
 Below is a conceptual structure of the YAML. The full YAML is provided in Appendix A.
 
-\begin{verbatim}
+% Encadré façon chatbot pour le YAML de pipeline
+\begin{tcolorbox}[colback=gray!5!white, colframe=blue!75!black, title=Exemple de pipeline Azure DevOps, fonttitle=\bfseries, sharp corners=south, listing only, listing options={language=yaml, basicstyle=\ttfamily\footnotesize, breaklines=true}]
 # azure-pipelines.yml (Conceptual Structure)
 trigger:
   branches:
@@ -37,22 +38,11 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  # General variables
-  nodeVersion: '16.x' # Specify Node.js version compatible with SPFx
-  projectFolderName: 'spfx-solution' # Name of the folder containing package.json
-
-  # Secrets linked from Azure Key Vault (example names)
-  # These are typically configured in pipeline settings and mapped to variable groups
-  # CERTIFICATEPATH: $(AzureKeyVaultSecret_CertificatePath) - Path if cert is checked in (not recommended)
-  # Or for certificate file from secure files:
-  # CERTIFICATE_P12_SECUREFILE_NAME: 'sothema-spfx-deploy-cert.p12'
-  # CERTIFICATE_PASSWORD_SECRET: $(PfxPassword)
+  nodeVersion: '16.x'
+  projectFolderName: 'spfx-solution'
   THUMBPRINT: $(AzureKeyVaultSecret_Thumbprint)
   CLIENTID: $(AzureKeyVaultSecret_ClientId)
   TENANT: $(AzureKeyVaultSecret_TenantId)
-  # SPPKGPATH might be dynamically generated or a fixed relative path after build
-  # SP_ONLINE_URL_DEV, SP_USERNAME_DEV, SP_PASSWORD_DEV etc. for different envs
-
 stages:
 - stage: Build_and_Test
   displayName: 'Build, Test, Scan and Package SPFx Solution'
@@ -60,94 +50,12 @@ stages:
   - job: MainBuild
     displayName: 'SPFx Build, Test & Scan'
     steps:
-    - task: NodeTool@0 # 1. Install Node.js
+    - task: NodeTool@0
       inputs:
         versionSpec: $(nodeVersion)
       displayName: 'Install Node.js $(nodeVersion)'
-
-    - script: | # 2. Install Dependencies
-        cd $(projectFolderName)
-        npm ci
-      displayName: 'Install npm dependencies'
-      workingDirectory: '$(Build.SourcesDirectory)'
-
-    - script: | # 3. Run Unit Tests
-        cd $(projectFolderName)
-        gulp test
-      displayName: 'Run Unit Tests (gulp test)'
-      workingDirectory: '$(Build.SourcesDirectory)'
-
-    - script: | # 4. Build SPFx Solution
-        cd $(projectFolderName)
-        gulp bundle --ship
-        gulp package-solution --ship
-      displayName: 'Bundle and Package SPFx Solution'
-      workingDirectory: '$(Build.SourcesDirectory)'
-
-    # 5. Docker Image build step would be here if containerizing the build or app
-    # For Trivy filesystem scan, Docker isn't strictly needed for this step
-
-    - task: Trivy@1 # 6. Trivy Vulnerability Scan
-      inputs:
-        scanType: 'fs'
-        scanTarget: '$(Build.SourcesDirectory)/$(projectFolderName)' # Scan project files
-        severity: 'HIGH,CRITICAL'
-        exitCode: '1' # Fail pipeline on vulnerabilities
-        ignoreUnfixed: true
-        format: 'table'
-        output: 'trivy-report.txt'
-        # Add other Trivy parameters like --ignorefile if needed
-      displayName: 'Run Trivy Vulnerability Scan on Filesystem'
-
-    # Playwright installation and execution
-    - script: | # 7. Install Playwright Browsers
-        cd $(projectFolderName)
-        npx playwright install --with-deps
-      displayName: 'Install Playwright browsers'
-      workingDirectory: '$(Build.SourcesDirectory)'
-
-    - script: | # 8. Run Playwright E2E Tests
-        cd $(projectFolderName)
-        npm run playwright:ci # Assuming a script in package.json like "playwright test --reporter=junit,line"
-      displayName: 'Run Playwright End-to-End Tests'
-      workingDirectory: '$(Build.SourcesDirectory)'
-      continueOnError: false # Fail pipeline if Playwright tests fail
-
-    - task: PublishTestResults@2 # 9. Publish Unit Test Results (if Jest/Mocha generate JUnit XML)
-      inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: '**/junit.xml' # Path to unit test results
-        searchFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)/temp/tests'
-        mergeTestResults: true
-        failTaskOnFailedTests: true
-      displayName: 'Publish Unit Test Results'
-      condition: succeededOrFailed() # Publish even if prior steps failed
-
-    - task: PublishTestResults@2 # 10. Publish Playwright Test Results
-      inputs:
-        testResultsFormat: 'JUnit'
-        testResultsFiles: 'playwright-report/results.xml' # Adjust path as per Playwright config
-        searchFolder: '$(System.DefaultWorkingDirectory)/$(projectFolderName)'
-        mergeTestResults: true
-        failTaskOnFailedTests: true
-      displayName: 'Publish Playwright E2E Test Results'
-      condition: succeededOrFailed()
-
-    - task: CopyFiles@2 # 11. Prepare SPFx Package Artifact
-      inputs:
-        SourceFolder: '$(Build.SourcesDirectory)/$(projectFolderName)/sharepoint/solution'
-        Contents: '*.sppkg'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)/sppkg'
-      displayName: 'Copy SPFx Package to Staging'
-
-    - task: CopyFiles@2 # 12. Prepare PowerShell Scripts Artifact
-      inputs:
-        SourceFolder: '$(Build.SourcesDirectory)/scripts/deployment' # Assuming scripts are here
-        Contents: '*.ps1'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)/scripts'
-      displayName: 'Copy PowerShell Scripts to Staging'
-
-    - task: PublishBuildArtifacts@1 # 13. Publish All Artifacts
+    # ... (reste du pipeline)
+\end{tcolorbox}
       inputs:
         PathtoPublish: '$(Build.ArtifactStagingDirectory)'
         ArtifactName: 'drop'
