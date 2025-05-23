@@ -154,10 +154,11 @@ stages:
 Secure and flexible management of configuration data, especially secrets, is crucial.
 
 \begin{table}[htbp]
+    \small
     \centering
     \caption{Environment Variables for CI/CD Pipeline}
     \label{tab:EnvVariablesCICD}
-    \begin{tabular}{|l|p{5cm}|l|l|p{4cm}|}
+    \begin{tabularx}{\textwidth}{|l|X|l|l|X|}
         \hline
         \textbf{Variable Name} & \textbf{Description} & \textbf{Scope} & \textbf{Secret} & \textbf{Source} \\
         \hline
@@ -185,7 +186,7 @@ Secure and flexible management of configuration data, especially secrets, is cru
         \hline
         \texttt{CERTIFICATE\_PASSWORD\_SECRET} & Password for the .p12/.pfx certificate file. & CI/CD & Yes & Azure Key Vault via Variable Group \\
         \hline
-    \end{tabular}
+    \end{tabularx}
 \end{table}
 
 \textbf{Secrets Management:}
