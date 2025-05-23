@@ -18,6 +18,7 @@ The YAML file typically includes the following main sections:
 
 Below is a conceptual structure of the YAML. The full YAML is provided in Appendix A.
 
+\noindent\fbox{\begin{minipage}{\dimexpr\textwidth-2\fboxsep-2\fboxrule\relax}}
 \begin{verbatim}
 # azure-pipelines.yml (Conceptual Structure)
 trigger:
@@ -85,7 +86,7 @@ stages:
       workingDirectory: '$(Build.SourcesDirectory)'
 
     # 5. Docker Image build step would be here if containerizing the build or app
-    # For Trivy filesystem scan, Docker isn't strictly needed for this step
+    # For Trivy filesystem scan, Docker isn\'t strictly needed for this step
 
     - task: Trivy@1 # 6. Trivy Vulnerability Scan
       inputs:
@@ -169,6 +170,7 @@ stages:
         TargetFolder: '$(Build.ArtifactStagingDirectory)/playwright-html-report'
       displayName: 'Copy Playwright HTML Report to Staging'
 \end{verbatim}
+\end{minipage}}
 
 \section{Detailed Description of CI Steps}
 \label{sec:CIDetailedSteps}
