@@ -77,27 +77,27 @@ The project provided several key learnings and reinforced established best pract
 
 \begin{table}[htbp]
     \centering
-    \caption{Illustrative Pipeline Execution Metrics Summary}
+    \caption{Pipeline Execution Metrics Summary}
     \label{tab:PipelineExecutionMetrics}
-    \begin{tabular}{|l|p{6cm}|p{5cm}|}
+    \begin{tabular}{|l|c|l|}
         \hline
-        \textbf{Metric} & \textbf{Value / Observation} & \textbf{Notes} \\
+        \textbf{Metric} & \textbf{Value} & \textbf{Notes} \\
         \hline
-        Avg. CI Pipeline Time & ~8m 43s & \texttt{ubuntu-latest} agent, moderate SPFx project \\
+        Avg. CI Pipeline Time & 8m 43s & Ubuntu agent, moderate SPFx \\
         \hline
-        Avg. Release Stage Deployment Time & 2-5 minutes & Per environment \\
+        Avg. Release Deployment & 2-5 min & Per environment \\
         \hline
-        Deployments (Dev, last month) & ~40-50 & Reflects active development cycles \\
+        Dev Deployments/Month & 40-50 & Active dev. cycles \\
         \hline
-        Deployments (Prod, last month) & 1 & Reflects controlled release to production \\
+        Prod Deployments/Month & 1 & Controlled releases \\
         \hline
-        Critical Vulnerabilities Caught & 2 (by Trivy, pre-deployment) & Addressed by package updates \\
+        Critical Vulnerabilities & 2 & Caught by Trivy, fixed \\
         \hline
-        E2E Test Failure Rate (initial) & ~15\% (stabilized to <5\% after test refinement) & Initial flakiness addressed \\
+        E2E Test Failure Rate & <5\% & Initially 15\%, now stable \\
         \hline
-        Manual Deployment Errors Post-Pipe & 0 (for pipeline-managed deployments) & Significant reduction \\
+        Manual Deployment Errors & 0 & Post-pipeline implementation \\
         \hline
     \end{tabular}
-\end{table}
+\end{table>
 
 These results and metrics demonstrate the successful achievement of the project's objectives, providing Sothema with a more efficient, reliable, and secure method for deploying SPFx solutions.
