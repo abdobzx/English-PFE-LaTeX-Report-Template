@@ -58,54 +58,17 @@ The CI/CD pipeline was designed using Azure DevOps as the central orchestration 
 
 \begin{figure}[htbp]
     \centering
-    \begin{verbatim}
-+---------------------+     +---------------------+     +-----------------------+
-|   Azure Repos       |<--->| Azure Pipelines (CI)|<--->|   Build Agent (Host)  |
-| (Git Repository)    |     | (YAML Definition)   |     | (e.g., ubuntu-latest) |
-| - Source Code       |     +---------------------+     |  - Node.js            |
-| - Branch Strategy   |                                 |  - Gulp               |
-+---------------------+                                 |  - Docker Client      |
-                                                        +--------+--------------+
-                                                                 |
-                                                                 v
-+-------------------------------------------------------------------------------------------------+
-| Build Agent Operations:                                                                         |
-|                                                                                                 |
-|  1. Checkout Code                                                                               |
-|  2. Install Node.js & Dependencies (npm ci)                                                      |
-|  3. Run Unit Tests (gulp test)                                                                  |
-|  4. Build SPFx Solution (gulp bundle --ship, gulp package-solution --ship)                      |
-|  5. Build Docker Image (for scanning environment - optional for direct SPFx builds)             |
-|  6. Run Trivy Scan (on dependencies or container)                                               |
-|  7. Run Playwright E2E Tests (npm run test:playwright)                                          |
-|  8. Publish Artifacts (.sppkg, test reports, scan reports, PowerShell scripts) to Azure Artifacts|
-+-------------------------------------------------------------------------------------------------+
-                                                                 |
-                                                                 v
-+-------------------------+     +-----------------------------------------------------------------+
-| Azure Pipelines (Release)|<--->| Deployment Tasks (PowerShell using Office 365 CLI / PnP PowerShell)|
-| (Multi-Stage)           |     |                                                                 |
-| - Dev Stage             |     |  For each Stage (Dev, QA, PreProd, Prod):                       |
-| - QA Stage (Approval)   |     |   1. Download Artifacts                                         |
-| - PreProd Stage (Approval)|   |   2. Connect to SharePoint Online (using Service Principal)     |
-| - Prod Stage (Approval) |     |   3. Add/Upload .sppkg to App Catalog                           |
-+-------------------------+     |   4. Deploy/Install .sppkg to Target Site Collection(s)         |
-                                |   5. Run Post-Deployment Scripts (e.g., Create Lists)           |
-                                |   6. Disconnect from SharePoint Online                          |
-                                +-----------------------+-----------------------------------------+
-                                                        |
-                                                        v
-        +-------------------------+      +-------------------------+
-        | SharePoint Online (Dev) |      | SharePoint Online (QA)  |
-        | - App Catalog           |      | - App Catalog           |
-        | - Target Site(s)        |      | - Target Site(s)        |
-        +-------------------------+      +-------------------------+
-        +-------------------------+      +-------------------------+
-        | SharePoint Online (PreP)|      | SharePoint Online (Prod)|
-        | - App Catalog           |      | - App Catalog           |
-        | - Target Site(s)        |      | - Target Site(s)        |
-        +-------------------------+      +-------------------------+
-    \end{verbatim}
+    % The verbatim block previously here is replaced with a descriptive paragraph.
+    % For a visual representation, consider creating a diagram using a dedicated tool
+    % and including it as an image (e.g., using the graphicx package and \\includegraphics).
+    \parbox{0.8\textwidth}{
+        \centering
+        \textit{Figure \ref{fig:HighLevelArchitecture} conceptually illustrates the CI/CD pipeline architecture.
+        Azure Repos hosts the source code. Azure Pipelines (CI) automates build, test (unit, E2E with Playwright), and vulnerability scanning (Trivy), producing artifacts.
+        These artifacts are then deployed by Azure Pipelines (Release) through multiple stages (Dev, QA, PreProd, Prod) to SharePoint Online environments.
+        Deployment tasks utilize PowerShell scripts for SharePoint interactions, authenticated via a Service Principal.
+        Each SharePoint environment (Dev, QA, PreProd, Prod) includes an App Catalog and target site(s).}
+    }
     \caption{High-Level CI/CD Pipeline Architecture}
     \label{fig:HighLevelArchitecture}
 \end{figure}
